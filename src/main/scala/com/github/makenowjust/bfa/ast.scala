@@ -3,8 +3,8 @@ package com.github.makenowjust.bfa
 sealed abstract class RegexAST
 
 object RegexAST {
-  final case class Alt(nodes: List[RegexAST])    extends RegexAST
-  final case class Concat(nodes: List[RegexAST]) extends RegexAST
+  final case class Alt(left: RegexAST, right: RegexAST)    extends RegexAST
+  final case class Concat(left: RegexAST, right: RegexAST) extends RegexAST
 
   final case class PositiveLookAhead(node: RegexAST)  extends RegexAST
   final case class NegativeLookAhead(node: RegexAST)  extends RegexAST

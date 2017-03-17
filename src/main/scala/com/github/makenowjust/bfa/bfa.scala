@@ -83,8 +83,8 @@ object BFA {
 
     def cons(re: RegexAST, prev: BExpr, next: Set[Symbol]): BExpr =
       re match {
-        case Alt(nodes)    => consAlt(nodes, prev, next)
-        case Concat(nodes) => consConcat(nodes, prev, next)
+        case Alt(left, right)    => consAlt(left, right, prev, next)
+        case Concat(left, right) => consConcat(left, right, prev, next)
 
         case Many(node)     => consMany(node, prev, next)
         case Some(node)     => consSome(node, prev, next)
@@ -95,16 +95,10 @@ object BFA {
         case Empty         => consEmpty(prev, next)
       }
 
-    def consAlt(nodes: List[RegexAST], prev: BExpr, next: Set[Symbol]): BExpr =
-      ((False: BExpr) /: nodes) { (e, re) =>
-        Or(e, cons(re, prev, next))
-      }
-    def consConcat(nodes: List[RegexAST], prev: BExpr, next: Set[Symbol]): BExpr = {
-      val prev1 = (prev /: nodes.dropRight(1)) { (prev, re) =>
-        cons(re, prev, Set())
-      }
-      cons(nodes.last, prev1, next)
-    }
+    def consAlt(left: RegexAST, right: RegexAST, prev: BExpr, next: Set[Symbol]): BExpr =
+      cons(left, prev, next) | cons(right, prev, next)
+    def consConcat(left: RegexAST, right: RegexAST, prev: BExpr, next: Set[Symbol]): BExpr =
+      cons(right, cons(left, prev, Set()), next)
 
     def consMany(node: RegexAST, prev: BExpr, next: Set[Symbol]): BExpr = {
       val now = q()

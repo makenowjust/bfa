@@ -6,16 +6,14 @@ class RegexParser extends RegexParsers {
   import RegexAST._
 
   def alt: Parser[RegexAST] =
-    concat ~ ("|" ~> concat).* ^^ {
-      case left ~ List() => left
-      case left ~ rights =>  Alt(left :: rights)
-    }
+    concat * ("|" ^^^ { Alt(_, _) })
 
   def concat: Parser[RegexAST] =
-    condition.* ^^ {
-      case List()     => Empty
-      case List(node) => node
-      case nodes      => Concat(nodes)
+    condition.? >> {
+      _.map(left => concat ^^ {
+        case Empty => left
+        case right => Concat(left, right)
+      }).getOrElse(success(Empty))
     }
 
   def condition: Parser[RegexAST] =
