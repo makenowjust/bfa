@@ -13,13 +13,15 @@ sealed abstract class BExpr {
   }
 
   private[this] def simplifyAnd(left: BExpr, right: BExpr) = (left, right) match {
-    case (True, True)  => True
+    case (True, node)  => node
+    case (node, True)  => node
     case (False, _)    => False
     case (_, False)    => False
     case (left, right) => And(left, right)
   }
   private[this] def simplifyOr(left: BExpr, right: BExpr) = (left, right) match {
-    case (False, False) => False
+    case (False, node)  => node
+    case (node, False)  => node
     case (True, _)      => True
     case (_, True)      => True
     case (lefy, right)  => Or(left, right)
