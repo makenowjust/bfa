@@ -44,5 +44,8 @@ class RegexParser extends RegexParsers {
 }
 
 object RegexParser extends RegexParser {
-  def parse(input: String) = parseAll(alt, input)
+  def parse(input: String): Option[RegexAST] = parseAll(alt, input) match {
+    case Success(re, _) => Some(re)
+    case _              => None
+  }
 }

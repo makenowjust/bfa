@@ -4,29 +4,30 @@ sealed abstract class BExpr {
   import BExpr._
 
   def simplify: BExpr = this match {
-    case And(left, right) => (left.simplify, right.simplify) match {
-      case (True, True)  => True
-      case (False, _)    => False
-      case (_, False)    => False
-      case (left, right) => And(left, right)
-    }
-
-    case Or(left, right) => (left.simplify, right.simplify) match {
-      case (False, False) => False
-      case (True, _)      => True
-      case (_, True)      => True
-      case (lefy, right)  => Or(left, right)
-    }
-
-    case Not(node) => node.simplify match {
-      case True => False
-      case False => True
-      case node => Not(node)
-    }
-
+    case And(left, right) => simplifyAnd(left.simplify, right.simplify)
+    case Or(left, right) => simplifyOr(left.simplify, right.simplify)
+    case Not(node) => simplifyNot(node.simplify)
     case True      => True
     case False     => False
     case Var(name) => Var(name)
+  }
+
+  private[this] def simplifyAnd(left: BExpr, right: BExpr) = (left, right) match {
+    case (True, True)  => True
+    case (False, _)    => False
+    case (_, False)    => False
+    case (left, right) => And(left, right)
+  }
+  private[this] def simplifyOr(left: BExpr, right: BExpr) = (left, right) match {
+    case (False, False) => False
+    case (True, _)      => True
+    case (_, True)      => True
+    case (lefy, right)  => Or(left, right)
+  }
+  private[this] def simplifyNot(node: BExpr) = node match {
+    case True => False
+    case False => True
+    case _ => Not(node)
   }
 
   def apply(env: Map[Symbol, BExpr]): BExpr = this match {
@@ -46,7 +47,7 @@ sealed abstract class BExpr {
 
   def &(right: BExpr): BExpr = And(this, right)
   def |(right: BExpr): BExpr = Or(this, right)
-  def unary_~ = Not(this)
+  def unary_~(): BExpr = Not(this)
 }
 
 object BExpr {
