@@ -19,6 +19,7 @@ sealed abstract class BExpr {
     case (_, False)    => False
     case (left, right) => And(left, right)
   }
+
   private[this] def simplifyOr(left: BExpr, right: BExpr) = (left, right) match {
     case (False, node)  => node
     case (node, False)  => node
@@ -26,6 +27,7 @@ sealed abstract class BExpr {
     case (_, True)      => True
     case (lefy, right)  => Or(left, right)
   }
+
   private[this] def simplifyNot(node: BExpr) = node match {
     case True => False
     case False => True
@@ -41,26 +43,40 @@ sealed abstract class BExpr {
     case Var(name)        => env.getOrElse(name, Var(name))
   }
 
-  def toBoolean: Option[Boolean] = this match {
-    case True  => Some(true)
-    case False => Some(false)
-    case _     => None
+  override def toString(): String = this match {
+    case And(l: Or, r: Or)  => s"($l) /\\ ($r)"
+    case And(l: Or, r)      => s"($l) /\\ $r"
+    case And(l, r: Or)      => s"$l /\\ ($r)"
+    case And(l, r)          => s"$l /\\ $r"
+    case Or(l: And, r: And) => s"($l) \\/ ($r)"
+    case Or(l: And, r)      => s"($l) \\/ $r"
+    case Or(l, r: And)      => s"$l \\/ ($r)"
+    case Or(l, r)           => s"$l \\/ $r"
+    case Not(e: And)        => s"¬($e)"
+    case Not(e: Or)         => s"¬($e)"
+    case Not(e)             => s"¬$e"
+    case True               => "1"
+    case False              => "0"
+    case Var(s)             => s.name
   }
 
-  def &(right: BExpr): BExpr = And(this, right)
-  def |(right: BExpr): BExpr = Or(this, right)
-  def unary_~(): BExpr = Not(this)
+  def /\(right: BExpr): BExpr = And(this, right)
+  def \/(right: BExpr): BExpr = Or(this, right)
 }
 
 object BExpr {
   final case class  And(left: BExpr, right: BExpr) extends BExpr
   final case class  Or(left: BExpr, right: BExpr)  extends BExpr
-  final case class  Not(node: BExpr)               extends BExpr
+  final case class  Not(expr: BExpr)               extends BExpr
         case object True                           extends BExpr
         case object False                          extends BExpr
   final case class  Var(name: Symbol)              extends BExpr
 
-  def apply(value: Boolean): BExpr = if (value) True else False
+  def \/[T <% BExpr](syms: Set[T]): BExpr = syms.foldRight(False: BExpr) { _ \/ _  }
+    .simplify
+  def ¬(expr: BExpr): BExpr = Not(expr)
 
+  implicit def boolean2bexpr(value: Boolean): BExpr =
+    if (value) True else False
   implicit def symbol2bexpr(name: Symbol): BExpr = Var(name)
 }
