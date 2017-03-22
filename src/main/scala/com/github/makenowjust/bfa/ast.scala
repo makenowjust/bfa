@@ -16,6 +16,5 @@ object RegexAST {
   final case class Optional(node: RegexAST) extends RegexAST
 
   final case class  Literal(char: Char) extends RegexAST
-        case object Any                 extends RegexAST
         case object Empty               extends RegexAST
 }
