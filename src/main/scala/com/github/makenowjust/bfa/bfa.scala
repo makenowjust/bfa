@@ -1,132 +1,115 @@
 package com.github.makenowjust.bfa
 
-import scala.collection.mutable
+import BExpr._
+import RegexAST._
 
 final case class BFA(
-  Q: Set[Symbol],
-  Σ: Set[Char],
-  g: Map[(Symbol, Char), BExpr],
-  h: BExpr,
-  F: Set[Symbol]
+  states: Set[Symbol],
+  trans: Map[(Symbol, Char), BExpr],
+  init: BExpr,
+  finish: Set[Symbol]
 ) {
-  private def V(S: Set[Symbol]) =
-    Q.map(q => q -> BExpr(S.contains(q))).toMap
-
-  lazy val f: Map[Symbol, BExpr] = V(F)
-
-  def apply(w: String): Boolean =
-    h((f /: w){ (v, a) => Q.map(q =>
-      q -> g.getOrElse((q, a), BExpr.False)(v).simplify).toMap
-    }).simplify.toBoolean.get
-
-  def toDFA: DFA = {
-    def W = (_: Map[Symbol, BExpr]).mapValues(_.toBoolean.get)
-
-    def q_DFA(w: Map[Symbol, Boolean]): Symbol = {
-      val n = (0 /: Q) { (n, q) => (n << 1) | (if (w(q)) 1 else 0) }
-      Symbol(s"q$n")
+  def apply(text: String): BExpr = {
+    val last = text.toList.foldLeft(init) { (f, c) =>
+      f(states map { s => s -> trans.getOrElse((s, c), False) } toMap)
     }
-
-    val `2^Q` = (Set(Set.empty[Symbol]) /: Q) { (set, q) =>
-      set.union(set.map(_ + q))
-    }
-    val Q_DFA = `2^Q`.map { S => q_DFA(W(V(S))) }
-    val Σ_DFA = Σ
-    val δ_DFA = `2^Q`.flatMap { S =>
-      Σ.map { a =>
-        val v = V(S)
-        (q_DFA(W(v)), a) -> q_DFA(W(Q.map(q =>
-            q -> g.getOrElse((q, a), BExpr.False)(v).simplify).toMap))
-      }
-    }.toMap
-    val q0_DFA = q_DFA(W(f))
-    val F_DFA = `2^Q`.filter { S => h(V(S)).simplify.toBoolean.get }
-      .map { S => q_DFA(W(V(S))) }
-
-    DFA(Q_DFA, Σ_DFA, δ_DFA, q0_DFA, F_DFA)
+    last(states map { s => s -> (finish contains s: BExpr) } toMap).simplify
   }
 }
 
 object BFA {
-  import BExpr._
-  import RegexAST._
+  implicit final class RegexAST2BFA(r: RegexAST) {
 
-  val example1 = BFA(
-    Set('q1, 'q2),
-    Set('a', 'b'),
-    Map(
-      ('q1, 'a') -> ( 'q1 | ~'q2),
-      ('q2, 'a') -> (~'q1 & ~'q2),
-      ('q1, 'b') -> ( 'q1 & ~'q2),
-      ('q2, 'b') -> (~'q1 |  'q2)
-    ),
-    ~'q1 | 'q2,
-    Set('q2)
-  )
-
-  private class Regex2BFA(re: RegexAST, Σ: Set[Char]) {
-    var id = 0
-    val Q = mutable.Set.empty[Symbol]
-    def q(): Symbol = {
-      val q = Symbol(s"q$id")
-      id += 1
-      Q.add(q)
-      q
+    def toBFA: BFA = {
+      val (ss, tr, i, f, l) = from(r)
+      BFA(ss, tr, i.simplify, f union l)
     }
 
-    val g = mutable.Map.empty[(Symbol, Char), BExpr]
-    val q0 = q()
-    val F = Set(q0)
-    val h = cons(re, q0, Set()).simplify
+    private type ToResult = (
+      Set[Symbol],
+      Map[(Symbol, Char), BExpr],
+      BExpr,
+      Set[Symbol],
+      Set[Symbol])
 
-    private[BFA] def bfa = BFA(Set(Q.toSeq: _*), Σ, Map(g.toSeq: _*), h, F)
+    private def from(r: RegexAST): ToResult = r match {
+      case Alt(l, r)    => fromAlt(l, r)
+      case Concat(l, r) => fromConcat(l, r)
 
-    def cons(re: RegexAST, prev: BExpr, next: Set[Symbol]): BExpr =
-      re match {
-        case Alt(left, right)    => consAlt(left, right, prev, next)
-        case Concat(left, right) => consConcat(left, right, prev, next)
+      case Many(n)     => fromMany(n)
+      case Some(n)     => fromSome(n)
+      case Optional(n) => fromOptional(n)
 
-        case Many(node)     => consMany(node, prev, next)
-        case Some(node)     => consSome(node, prev, next)
-        case Optional(node) => consOptional(node, prev, next)
+      case PositiveLookAhead(n)  => fromPositiveLookAhead(n)
+      case NegativeLookAhead(n)  => fromNegativeLookAhead(n)
 
-        case Literal(char) => consLiteral(char, prev, next)
-        case Any           => consAny(prev, next)
-        case Empty         => consEmpty(prev, next)
-      }
-
-    def consAlt(left: RegexAST, right: RegexAST, prev: BExpr, next: Set[Symbol]): BExpr =
-      cons(left, prev, next) | cons(right, prev, next)
-    def consConcat(left: RegexAST, right: RegexAST, prev: BExpr, next: Set[Symbol]): BExpr =
-      cons(right, cons(left, prev, Set()), next)
-
-    def consMany(node: RegexAST, prev: BExpr, next: Set[Symbol]): BExpr = {
-      val now = q()
-      cons(node, prev | now, next + now) | prev | now
+      case Literal(c) => fromLiteral(c)
+      case Empty      => fromEmpty()
     }
-    def consSome(node: RegexAST, prev: BExpr, next: Set[Symbol]): BExpr = {
-      val now = q()
-      cons(node, prev | now, next + now)
-    }
-    def consOptional(node: RegexAST, prev: BExpr, next: Set[Symbol]): BExpr =
-      cons(node, prev, next) | prev
 
-    def consLiteral(char: Char, prev: BExpr, next: Set[Symbol]): BExpr = {
-      val now = q()
-      (next + now).foreach { q => g((q, char)) = prev.simplify }
-      ((False: BExpr) /: (next + now)) { Or(_, _) }
+    private def fromAlt(l: RegexAST, r: RegexAST): ToResult = {
+      val (ss1, tr1, i1, f1, l1) = from(l)
+      val (ss2, tr2, i2, f2, l2) = from(r)
+      (ss1 union ss2, tr1 ++ tr2, i1 \/ i2, f1 union f2, l1 union l2)
     }
-    def consAny(prev: BExpr, next: Set[Symbol]): BExpr = {
-      val now = q()
-      (next + now).foreach { q =>
-        Σ.foreach { c =>
-          g((q, c)) = prev.simplify
-        }
-      }
-      ((False: BExpr) /: (next + now)) { Or(_, _) }
+
+    private def fromConcat(l: RegexAST, r: RegexAST): ToResult = {
+      val (ss1, tr1, i1, f1, l1) = from(l)
+      val (ss2, tr2, i2, f2, l2) = from(r)
+      val env = f1 map { s => s -> (s \/ i2).simplify } toMap
+      val tr3 = (tr1 mapValues { e => e(env) }) ++ tr2
+      (ss1 union ss2, tr3, i1(env), f2, l1 union l2)
     }
-    def consEmpty(prev: BExpr, next: Set[Symbol]): BExpr = prev
+
+    private def fromMany(n: RegexAST): ToResult = {
+      val s0 = newSymbol()
+      val (ss, tr, i, f, l) = from(n)
+      val env = f map { s => s -> (s \/ i).simplify } toMap
+      val tr1 = tr mapValues { e => e(env) }
+      (ss + s0, tr1, i \/ s0, f + s0, l)
+    }
+
+    private def fromSome(n: RegexAST): ToResult = {
+      val (ss, tr, i, f, l) = from(n)
+      val env = f map { s => s -> (s \/ i).simplify } toMap
+      val tr1 = tr mapValues { e => e(env) }
+      (ss, tr1, i, f, l)
+    }
+
+    private def fromOptional(n: RegexAST): ToResult = {
+      val s0 = newSymbol()
+      val (ss, tr, i, f, l) = from(n)
+      (ss + s0, tr, s0 \/ i, f + s0, l)
+    }
+
+    private def fromPositiveLookAhead(n: RegexAST): ToResult = {
+      val s = newSymbol()
+      val (ss, tr, i, f, l) = from(n)
+      (ss + s, tr, i /\ s, Set(s), f union l)
+    }
+
+    private def fromNegativeLookAhead(n: RegexAST): ToResult = {
+      val s = newSymbol()
+      val (ss, tr, i, f, l) = from(n)
+      (ss + s, tr, ¬(i) /\ s, Set(s), f union l)
+    }
+
+    private def fromLiteral(c: Char): ToResult = {
+      val s = newSymbol()
+      val t = newSymbol()
+      (Set(s, t), Map((s, c) -> t), s, Set(t), Set.empty)
+    }
+
+    private def fromEmpty(): ToResult = {
+      val s = newSymbol()
+      (Set(s), Map.empty, s, Set(s), Set.empty)
+    }
+
+    var count = 0
+
+    def newSymbol(): Symbol = {
+      count += 1
+      Symbol(s"s$count")
+    }
   }
-
-  def fromRegex(re: RegexAST, Σ: Set[Char]): BFA = new Regex2BFA(re, Σ).bfa
 }

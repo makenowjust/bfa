@@ -34,9 +34,8 @@ class RegexParser extends RegexParsers {
     } yield repeated.getOrElse(node)
 
   def atom: Parser[RegexAST] =
-    "(" ~> alt <~ ")"                                             |
-    "." ^^^ { Any }                                               |
-    """[^.()*+?|]""".r ^^ { (s: String) => Literal(s.charAt(0)) }
+    "(" ~> alt <~ ")"                                           |
+    """[^()*+?|]""".r ^^ { (s: String) => Literal(s.charAt(0)) }
 
   def eof: Parser[String] = """\z""".r
 }
