@@ -4,34 +4,43 @@ sealed abstract class BExpr {
   import BExpr._
 
   def simplify: BExpr = this match {
-    case And(left, right) => simplifyAnd(left.simplify, right.simplify)
-    case Or(left, right) => simplifyOr(left.simplify, right.simplify)
-    case Not(node) => simplifyNot(node.simplify)
+    case And(l, r) => simplifyAnd(l.simplify, r.simplify)
+    case Or(l, r)  => simplifyOr(l.simplify, r.simplify)
+    case Not(e)    => simplifyNot(e.simplify)
     case True      => True
     case False     => False
-    case Var(name) => Var(name)
+    case Var(q)    => Var(q)
   }
 
-  private[this] def simplifyAnd(left: BExpr, right: BExpr) = (left, right) match {
-    case (True, node)  => node
-    case (node, True)  => node
-    case (False, _)    => False
-    case (_, False)    => False
-    case (left, right) => And(left, right)
+  private[this] def simplifyAnd(l: BExpr, r: BExpr) = (l, r) match {
+    case (True, r)  => r
+    case (l, True)  => l
+    case (False, _) => False
+    case (_, False) => False
+    case (l, r)     => And(l, r)
   }
 
-  private[this] def simplifyOr(left: BExpr, right: BExpr) = (left, right) match {
-    case (False, node)  => node
-    case (node, False)  => node
-    case (True, _)      => True
-    case (_, True)      => True
-    case (lefy, right)  => Or(left, right)
+  private[this] def simplifyOr(l: BExpr, r: BExpr) = (l, r) match {
+    case (False, e) => e
+    case (e, False) => e
+    case (True, _)  => True
+    case (_, True)  => True
+    case (lefy, r)  => Or(l, r)
   }
 
-  private[this] def simplifyNot(node: BExpr) = node match {
-    case True => False
+  private[this] def simplifyNot(e: BExpr) = e match {
+    case True  => False
     case False => True
-    case _ => Not(node)
+    case _     => Not(e)
+  }
+
+  def vars: Set[Symbol] = this match {
+    case And(l, r) => l.vars ++ r.vars
+    case Or(l, r)  => l.vars ++ r.vars
+    case Not(e)    => e.vars
+    case True      => Set.empty
+    case False     => Set.empty
+    case Var(q)    => Set(q)
   }
 
   def apply(env: Map[Symbol, BExpr]): BExpr = this match {
@@ -42,6 +51,8 @@ sealed abstract class BExpr {
     case False            => False
     case Var(name)        => env.getOrElse(name, Var(name))
   }
+
+  def apply(set: Set[Symbol]): BExpr = this(set map { s => s -> True } toMap)
 
   override def toString(): String = this match {
     case And(l: Or, r: Or)  => s"($l) /\\ ($r)"
@@ -62,9 +73,16 @@ sealed abstract class BExpr {
 
   def /\(right: BExpr): BExpr = And(this, right)
   def \/(right: BExpr): BExpr = Or(this, right)
+
+  def toBoolean: Boolean = this.simplify match {
+    case True => true
+    case _ => false
+  }
 }
 
 object BExpr {
+  import scala.language.implicitConversions
+
   final case class  And(left: BExpr, right: BExpr) extends BExpr
   final case class  Or(left: BExpr, right: BExpr)  extends BExpr
   final case class  Not(expr: BExpr)               extends BExpr
@@ -72,11 +90,10 @@ object BExpr {
         case object False                          extends BExpr
   final case class  Var(name: Symbol)              extends BExpr
 
-  def \/[T <% BExpr](syms: Set[T]): BExpr = syms.foldRight(False: BExpr) { _ \/ _  }
-    .simplify
+  def /\[T <% BExpr](syms: Set[T]): BExpr = syms.foldRight(True: BExpr) { _ /\ _  }.simplify
+  def \/[T <% BExpr](syms: Set[T]): BExpr = syms.foldRight(False: BExpr) { _ \/ _  }.simplify
   def ¬(expr: BExpr): BExpr = Not(expr)
 
-  implicit def boolean2bexpr(value: Boolean): BExpr =
-    if (value) True else False
+  implicit def boolean2bexpr(value: Boolean): BExpr = if (value) True else False
   implicit def symbol2bexpr(name: Symbol): BExpr = Var(name)
 }

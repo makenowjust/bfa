@@ -4,112 +4,156 @@ import BExpr._
 import RegexAST._
 
 final case class BFA(
-  states: Set[Symbol],
-  trans: Map[(Symbol, Char), BExpr],
-  init: BExpr,
-  finish: Set[Symbol]
-) {
-  def apply(text: String): BExpr = {
-    val last = text.toList.foldLeft(init) { (f, c) =>
-      f(states map { s => s -> trans.getOrElse((s, c), False) } toMap)
+  transExpr: Map[(Symbol, Char), BExpr],
+  transSet: Map[(Symbol, Char), BExpr],
+  initExpr: BExpr,
+  initSet: Set[Symbol]) {
+  val statesExpr: Set[Symbol] = initExpr.vars ++ (transExpr.keySet map { _._1 }) ++ (transExpr.values flatMap { _.vars })
+  val statesSet: Set[Symbol]  = initSet ++ (transSet.keySet map { _._1 }) ++ (transSet.values flatMap { _.vars })
+
+  def apply(text: String): Boolean = {
+    def tg(q: Symbol, c: Char) = transExpr.getOrElse((q, c), False) simplify
+    def tt(q: Symbol, c: Char)(t: Set[Symbol]) = transSet.getOrElse((q, c), False)(t) toBoolean
+
+    val (g, t) = text.toList.foldLeft((initExpr, initSet)) {
+      case ((g, t), c) =>
+        val g2 = g(statesExpr map { q => q -> tg(q, c) } toMap) simplify
+        val t2 = statesSet filter { q => tt(q, c)(t) }
+        (g2, t2)
     }
-    last(states map { s => s -> (finish contains s: BExpr) } toMap).simplify
+    g(t) toBoolean
   }
 }
 
 object BFA {
-  implicit final class RegexAST2BFA(r: RegexAST) {
-
+  implicit class Regex2BFA(val re: RegexAST) {
     def toBFA: BFA = {
-      val (ss, tr, i, f, l) = from(r)
-      BFA(ss, tr, i.simplify, f union l)
+      val Result(tg, tt, ig, it, ag, at) = from(re)
+
+      val ate = at map { q => q -> ag } toMap
+      val tg2 = tg mapValues { g => g(ate) }
+      val ig2 = ig(ate)
+
+      BFA(tg2, tt, ig2, it)
     }
 
-    private type ToResult = (
-      Set[Symbol],
-      Map[(Symbol, Char), BExpr],
-      BExpr,
-      Set[Symbol],
-      Set[Symbol])
+    private[this] final case class Result(
+      transExpr: Map[(Symbol, Char), BExpr],
+      transSet: Map[(Symbol, Char), BExpr],
+      initExpr: BExpr,
+      initSet: Set[Symbol],
+      acceptExpr: BExpr,
+      acceptSet: Set[Symbol])
 
-    private def from(r: RegexAST): ToResult = r match {
+    private[this] def from(e: RegexAST): Result = e match {
       case Alt(l, r)    => fromAlt(l, r)
       case Concat(l, r) => fromConcat(l, r)
 
-      case Many(n)     => fromMany(n)
-      case Some(n)     => fromSome(n)
-      case Optional(n) => fromOptional(n)
+      case PositiveLookAhead(e)  => fromPositiveLookAhead(e)
+      case NegativeLookAhead(e)  => fromNegativeLookAhead(e)
+      case PositiveLookBehind(e) => fromPositiveLookBehind(e)
+      case NegativeLookBehind(e) => fromNegativeLookBehind(e)
 
-      case PositiveLookAhead(n)  => fromPositiveLookAhead(n)
-      case NegativeLookAhead(n)  => fromNegativeLookAhead(n)
+      //case Many(e)     => fromMany(e)
+      //case Some(e)     => fromSome(e)
+      //case Optional(e) => fromOptional(e)
 
       case Literal(c) => fromLiteral(c)
       case Empty      => fromEmpty()
     }
 
-    private def fromAlt(l: RegexAST, r: RegexAST): ToResult = {
-      val (ss1, tr1, i1, f1, l1) = from(l)
-      val (ss2, tr2, i2, f2, l2) = from(r)
-      (ss1 union ss2, tr1 ++ tr2, i1 \/ i2, f1 union f2, l1 union l2)
+    private[this] def fromAlt(l: RegexAST, r: RegexAST): Result = {
+      val Result(tg1, tt1, ig1, it1, ag1, at1) = from(l)
+      val Result(tg2, tt2, ig2, it2, ag2, at2) = from(r)
+
+      Result(
+        transExpr  = tg1 ++ tg2,
+        transSet   = tt1 ++ tt2,
+        initExpr   = ig1 \/ ig2,
+        initSet    = it1 ++ it2,
+        acceptExpr = ag1 \/ ag2,
+        acceptSet  = at1 ++ at2)
     }
 
-    private def fromConcat(l: RegexAST, r: RegexAST): ToResult = {
-      val (ss1, tr1, i1, f1, l1) = from(l)
-      val (ss2, tr2, i2, f2, l2) = from(r)
-      val env = f1 map { s => s -> (s \/ i2).simplify } toMap
-      val tr3 = (tr1 mapValues { e => e(env) }) ++ tr2
-      (ss1 union ss2, tr3, i1(env), f2, l1 union l2)
+    private[this] def fromConcat(l: RegexAST, r: RegexAST): Result = {
+      val Result(tg1, tt1, ig1, it1, ag1, at1) = from(l)
+      val Result(tg2, tt2, ig2, it2, ag2, at2) = from(r)
+
+      val at1e = at1 map { q => q -> ig2 } toMap
+      val tg12 = tg1 mapValues { g => g(at1e) }
+      val ig12 = ig1(at1e)
+      val ag12 = ag1(at1e)
+
+      val it2e = it2 map { q => q -> ag12 } toMap
+      val tt22 = tt2 mapValues { g => g(it2e) }
+      val ag22 = ag2(it2e)
+
+      Result(
+        transExpr  = tg12 ++ tg2,
+        transSet   = tt1 ++ tt22,
+        initExpr   = ig12,
+        initSet    = it1,
+        acceptExpr = ag22,
+        acceptSet  = at2)
     }
 
-    private def fromMany(n: RegexAST): ToResult = {
-      val s0 = newSymbol()
-      val (ss, tr, i, f, l) = from(n)
-      val env = f map { s => s -> (s \/ i).simplify } toMap
-      val tr1 = tr mapValues { e => e(env) }
-      (ss + s0, tr1, i \/ s0, f + s0, l)
+    private[this] def fromPositiveLookAhead(e: RegexAST): Result = {
+      val Result(tg, tt, ig, it, ag, at) = from(e)
+
+      ???
     }
 
-    private def fromSome(n: RegexAST): ToResult = {
-      val (ss, tr, i, f, l) = from(n)
-      val env = f map { s => s -> (s \/ i).simplify } toMap
-      val tr1 = tr mapValues { e => e(env) }
-      (ss, tr1, i, f, l)
+    private[this] def fromNegativeLookAhead(e: RegexAST): Result = {
+      val Result(tg, tt, ig, it, ag, at) = from(e)
+
+      ???
     }
 
-    private def fromOptional(n: RegexAST): ToResult = {
-      val s0 = newSymbol()
-      val (ss, tr, i, f, l) = from(n)
-      (ss + s0, tr, s0 \/ i, f + s0, l)
+    private[this] def fromPositiveLookBehind(e: RegexAST): Result = {
+      val Result(tg, tt, ig, it, ag, at) = from(e)
+
+      ???
     }
 
-    private def fromPositiveLookAhead(n: RegexAST): ToResult = {
-      val s = newSymbol()
-      val (ss, tr, i, f, l) = from(n)
-      (ss + s, tr, i /\ s, Set(s), f union l)
+    private[this] def fromNegativeLookBehind(e: RegexAST): Result = {
+      val Result(tg, tt, ig, it, ag, at) = from(e)
+
+      ???
     }
 
-    private def fromNegativeLookAhead(n: RegexAST): ToResult = {
-      val s = newSymbol()
-      val (ss, tr, i, f, l) = from(n)
-      (ss + s, tr, ¬(i) /\ s, Set(s), f union l)
+    private[this] def fromLiteral(c: Char): Result = {
+      val qg0 = newSymbol()
+      val qg1 = newSymbol()
+      val qt0 = newSymbol()
+      val qt1 = newSymbol()
+
+      Result(
+        transExpr  = Map((qg0, c) -> qg1),
+        transSet   = Map((qt1, c) -> qt0),
+        initExpr   = qg0,
+        initSet    = Set(qt0),
+        acceptExpr = qt1,
+        acceptSet  = Set(qg1))
     }
 
-    private def fromLiteral(c: Char): ToResult = {
-      val s = newSymbol()
-      val t = newSymbol()
-      (Set(s, t), Map((s, c) -> t), s, Set(t), Set.empty)
+    private[this] def fromEmpty(): Result = {
+      val qg = newSymbol()
+      val qt = newSymbol()
+
+      Result(
+        transExpr  = Map.empty,
+        transSet   = Map.empty,
+        initExpr   = qg,
+        initSet    = Set(qt),
+        acceptExpr = qt,
+        acceptSet  = Set(qg))
     }
 
-    private def fromEmpty(): ToResult = {
-      val s = newSymbol()
-      (Set(s), Map.empty, s, Set(s), Set.empty)
-    }
+    private[this] var count = 0
 
-    var count = 0
-
-    def newSymbol(): Symbol = {
+    private[this] def newSymbol(): Symbol = {
       count += 1
-      Symbol(s"s$count")
+      Symbol(s"q$count")
     }
   }
 }
