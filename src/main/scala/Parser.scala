@@ -11,8 +11,8 @@ class Parser extends RegexParsers {
   def concat: Parser[AST] =
     condition.* ^^ {
       case Nil => Empty
-      case (node :: Nil) => node
-      case (node :: nodes) => nodes.foldLeft(node) { Concat(_, _) }
+      case (n :: Nil) => n
+      case (n :: ns) => ns.foldLeft(n) { Concat(_, _) }
     }
 
   def condition: Parser[AST] =
@@ -24,16 +24,16 @@ class Parser extends RegexParsers {
 
   def repeat: Parser[AST] =
     for {
-      node <- atom;
-      repeated <- {
-        "*" ^^^ { Star(node) }     |
-        "+" ^^^ { Plus(node) }     |
-        "?" ^^^ { Quest(node) }
+      n1 <- atom;
+      n2 <- {
+        "*" ^^^ { Star(n1) }  |
+        "+" ^^^ { Plus(n1) }  |
+        "?" ^^^ { Quest(n1) }
       }.?
-    } yield repeated.getOrElse(node)
+    } yield n2.getOrElse(n1)
 
   def atom: Parser[AST] =
-    "(" ~> alt <~ ")"                                           |
+    "(" ~> alt <~ ")" |
     """[^()*+?|]""".r ^^ { (s: String) => Literal(s.charAt(0)) }
 }
 
