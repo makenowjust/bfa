@@ -5,7 +5,7 @@ import org.scalatest._
 class ASTSpec extends WordSpec with MustMatchers {
   import AST._
 
-  "AST.reverse" should {
+  "reverse" must {
     List[(String, AST)](
       ("foo", Concat(Literal('o'), Concat(Literal('o'), Literal('f')))),
       ("fo|o", Alt(Concat(Literal('o'), Literal('f')), Literal('o'))),
@@ -14,7 +14,7 @@ class ASTSpec extends WordSpec with MustMatchers {
       ("(?<=fo)", PositiveLookBehind(Concat(Literal('o'), Literal('f')))),
       ("(?<!fo)", NegativeLookBehind(Concat(Literal('o'), Literal('f'))))
     ).foreach { case (s, n) =>
-      s"""reverses "$s"""" in {
+      s"""reverse "$s"""" in {
         Parser.parse(s).get.reverse must be(n)
       }
     }
@@ -31,7 +31,7 @@ class ASTSpec extends WordSpec with MustMatchers {
       Literal('a'),
       Empty
     ).foreach { n =>
-      s"""not changes $n""" in {
+      s"""not change $n""" in {
         n.reverse must be(n)
       }
     }

@@ -5,7 +5,7 @@ import org.scalatest._
 class ParserSpec extends WordSpec with MustMatchers {
   import AST._
 
-  "Parser.parse" should {
+  "parse" must {
     List[(String, AST)](
       ("", Empty),
       ("f", Literal('f')),
@@ -22,7 +22,7 @@ class ParserSpec extends WordSpec with MustMatchers {
       ("(?<=a)b", Concat(PositiveLookBehind(Literal('a')), Literal('b'))),
       ("(?<!a)b", Concat(NegativeLookBehind(Literal('a')), Literal('b')))
     ).foreach { case (s, t) =>
-      s"""parses "$s"""" in {
+      s"""parse "$s"""" in {
         Parser.parse(s) must be(Some(t))
       }
     }
@@ -31,7 +31,7 @@ class ParserSpec extends WordSpec with MustMatchers {
       "*", "+", "?",
       "(", ")", ")("
     ).foreach { s =>
-      s"""not parses "$s"""" in {
+      s"""not parse "$s"""" in {
         Parser.parse(s) must be(None)
       }
     }
