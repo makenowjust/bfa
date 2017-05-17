@@ -36,4 +36,29 @@ class ASTSpec extends WordSpec with MustMatchers {
       }
     }
   }
+
+  "matches" must {
+    List(
+      ("foo", (List("foo"), List("bar"))),
+      ("foo?", (List("foo", "fo"), List("fooo", "f"))),
+      ("foo+", (List("foo", "foooo", "fooooooo"), List("fo"))),
+      ("f?oo*", (List("foo", "o", "oo", "ooo", "foooo"), List("f", "fof"))),
+      ("fo(o|f)(?<=(o|f)o)", (List("foo"), List("fof", "ffo"))),
+      ("fo(o|f)(?<!(a|r)r)", (List("foo", "fof"), List("far", "frr"))),
+      ("(?=f(o|f))(f|o)oo", (List("foo"), List("ooo", "ffo", "ofo"))),
+      ("(?!b(b|a))(f|o)oo", (List("foo", "ooo"), List("bao", "bbo")))
+    ).foreach { case (s, (oks, fails)) =>
+      oks.foreach { ok =>
+        s"""match "$s" against "$ok"""" in {
+          Parser.parse(s).get.matches(ok) must be(true)
+        }
+      }
+
+      fails.foreach { fail =>
+        s"""not match "$s" against "$fail"""" in {
+          Parser.parse(s).get.matches(fail) must not be(true)
+        }
+      }
+    }
+  }
 }
