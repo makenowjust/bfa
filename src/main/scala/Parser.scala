@@ -1,19 +1,18 @@
-package com.github.makenowjust.bfa
+package bfa
 
 import scala.util.parsing.combinator._
 
-class RegexParser extends RegexParsers {
+class Parser extends RegexParsers {
   import RegexAST._
 
   def alt: Parser[RegexAST] =
     concat * ("|" ^^^ { Alt(_, _) })
 
   def concat: Parser[RegexAST] =
-    condition.? >> {
-      _.map(left => concat ^^ {
-        case Empty => left
-        case right => Concat(left, right)
-      }).getOrElse(success(Empty))
+    condition.* ^^ {
+      case Nil => Empty
+      case (node :: Nil) => node
+      case (node :: nodes) => nodes.foldLeft(node) { Concat(_, _) }
     }
 
   def condition: Parser[RegexAST] =
@@ -27,20 +26,18 @@ class RegexParser extends RegexParsers {
     for {
       node <- atom;
       repeated <- {
-        "*" ^^^ { Many(node) }     |
-        "+" ^^^ { Some(node) }     |
-        "?" ^^^ { Optional(node) }
+        "*" ^^^ { Star(node) }     |
+        "+" ^^^ { Plus(node) }     |
+        "?" ^^^ { Quest(node) }
       }.?
     } yield repeated.getOrElse(node)
 
   def atom: Parser[RegexAST] =
     "(" ~> alt <~ ")"                                           |
     """[^()*+?|]""".r ^^ { (s: String) => Literal(s.charAt(0)) }
-
-  def eof: Parser[String] = """\z""".r
 }
 
-object RegexParser extends RegexParser {
+object Parser extends Parser {
   def parse(input: String): Option[RegexAST] = parseAll(alt, input) match {
     case Success(re, _) => Some(re)
     case _              => None
