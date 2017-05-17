@@ -1,20 +1,20 @@
 package bfa
 
-sealed abstract class RegexAST
+sealed abstract class AST
 
-object RegexAST {
-  final case class Alt(left: RegexAST, right: RegexAST)    extends RegexAST
-  final case class Concat(left: RegexAST, right: RegexAST) extends RegexAST
+object AST {
+  final case class Alt(left: AST, right: AST)    extends AST
+  final case class Concat(left: AST, right: AST) extends AST
 
-  final case class PositiveLookAhead(node: RegexAST)  extends RegexAST
-  final case class NegativeLookAhead(node: RegexAST)  extends RegexAST
-  final case class PositiveLookBehind(node: RegexAST) extends RegexAST
-  final case class NegativeLookBehind(node: RegexAST) extends RegexAST
+  final case class PositiveLookAhead(node: AST)  extends AST
+  final case class NegativeLookAhead(node: AST)  extends AST
+  final case class PositiveLookBehind(node: AST) extends AST
+  final case class NegativeLookBehind(node: AST) extends AST
 
-  final case class Star(node: RegexAST)     extends RegexAST
-  final case class Plus(node: RegexAST)     extends RegexAST
-  final case class Quest(node: RegexAST) extends RegexAST
+  final case class Star(node: AST)  extends AST
+  final case class Plus(node: AST)  extends AST
+  final case class Quest(node: AST) extends AST
 
-  final case class  Literal(char: Char) extends RegexAST
-        case object Empty               extends RegexAST
+  final case class  Literal(char: Char) extends AST
+        case object Empty               extends AST
 }

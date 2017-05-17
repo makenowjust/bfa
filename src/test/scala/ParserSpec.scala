@@ -3,10 +3,10 @@ package bfa
 import org.scalatest._
 
 class ParserSpec extends WordSpec with MustMatchers {
-  import RegexAST._
+  import AST._
 
   "Parser.parse" should {
-    List[(String, RegexAST)](
+    List[(String, AST)](
       ("", Empty),
       ("f", Literal('f')),
       ("fo", Concat(Literal('f'), Literal('o'))),
