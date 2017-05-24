@@ -1,7 +1,5 @@
 package bfa
 
-import scala.annotation.tailrec
-
 object AST {
   final case class Alt(left: AST, right: AST)    extends AST
   final case class Concat(left: AST, right: AST) extends AST
