@@ -46,7 +46,11 @@ class ASTSpec extends WordSpec with MustMatchers {
       ("fo(o|f)(?<=(o|f)o)", (List("foo"), List("fof", "ffo"))),
       ("fo(o|f)(?<!(a|r)r)", (List("foo", "fof"), List("far", "frr"))),
       ("(?=f(o|f))(f|o)oo", (List("foo"), List("ooo", "ffo", "ofo"))),
-      ("(?!b(b|a))(f|o)oo", (List("foo", "ooo"), List("bao", "bbo")))
+      ("(?!b(b|a))(f|o)oo", (List("foo", "ooo"), List("bao", "bbo"))),
+      ("(?=f(o|f)o(?<=o(o|f)))(o|f)(o|f)(o|f)",
+        (List("foo"), List("ff", "ofo", "ffo", "fff", "fooo"))),
+      ("(o|f)(o|f)(o|f)(?<=(?=(o|f)o)f(o|f)o)",
+        (List("foo"), List("ff", "ofo", "ffo", "fff", "fooo")))
     ).foreach { case (s, (oks, fails)) =>
       oks.foreach { ok =>
         s"""match "$s" against "$ok"""" in {
