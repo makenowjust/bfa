@@ -6,7 +6,7 @@ class ASTSpec extends WordSpec with MustMatchers {
   import AST._
 
   "reverse" must {
-    List[(String, AST)](
+    List(
       ("foo", Concat(Literal('o'), Concat(Literal('o'), Literal('f')))),
       ("fo|o", Alt(Concat(Literal('o'), Literal('f')), Literal('o')))
     ).foreach { case (s, n) =>
@@ -15,7 +15,7 @@ class ASTSpec extends WordSpec with MustMatchers {
       }
     }
 
-    List[AST](
+    List(
       Alt(Literal('a'), Literal('b')),
       PositiveLookAhead(Empty),
       NegativeLookAhead(Empty),
