@@ -2,10 +2,27 @@ package bfa
 
 import scala.annotation.tailrec
 
+object AST {
+  final case class Alt(left: AST, right: AST)    extends AST
+  final case class Concat(left: AST, right: AST) extends AST
+
+  final case class PositiveLookAhead(node: AST)  extends AST
+  final case class NegativeLookAhead(node: AST)  extends AST
+  final case class PositiveLookBehind(node: AST) extends AST
+  final case class NegativeLookBehind(node: AST) extends AST
+
+  final case class Star(node: AST)  extends AST
+  final case class Plus(node: AST)  extends AST
+  final case class Quest(node: AST) extends AST
+
+  final case class  Literal(char: Char) extends AST
+        case object Empty               extends AST
+}
+
 sealed abstract class AST {
   import AST._
 
-  def matches(s: String): Boolean = matches(Reader(s), re => re.eof )
+  def matches(s: String): Boolean = matches(Reader(s), re => re.eof)
 
   private def matches(re: Reader, cont: (Reader) => Boolean): Boolean = {
     def always(re: Reader) = true
@@ -52,21 +69,4 @@ sealed abstract class AST {
     case Literal(c) => Literal(c)
     case Empty      => Empty
   }
-}
-
-object AST {
-  final case class Alt(left: AST, right: AST)    extends AST
-  final case class Concat(left: AST, right: AST) extends AST
-
-  final case class PositiveLookAhead(node: AST)  extends AST
-  final case class NegativeLookAhead(node: AST)  extends AST
-  final case class PositiveLookBehind(node: AST) extends AST
-  final case class NegativeLookBehind(node: AST) extends AST
-
-  final case class Star(node: AST)  extends AST
-  final case class Plus(node: AST)  extends AST
-  final case class Quest(node: AST) extends AST
-
-  final case class  Literal(char: Char) extends AST
-        case object Empty               extends AST
 }
