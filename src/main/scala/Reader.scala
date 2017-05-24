@@ -1,6 +1,6 @@
 package bfa
 
-trait Reader {
+sealed trait Reader {
   def current: Option[Char]
 
   def eof: Boolean = current == None
@@ -15,7 +15,7 @@ trait Reader {
 object Reader {
   def apply(s: String): Reader = ReaderImpl(s, 0, true)
 
-  private case class ReaderImpl(text: String, offset: Int, forwarding: Boolean) extends Reader {
+  private final case class ReaderImpl(text: String, offset: Int, forwarding: Boolean) extends Reader {
     def current: Option[Char] =
       if (0 <= index && index < text.length) Some(text(index)) else None
 
