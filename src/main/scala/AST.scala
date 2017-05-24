@@ -64,10 +64,10 @@ sealed abstract class AST {
     case Alt(l, r)    => Alt(l.reverse, r.reverse)
     case Concat(l, r) => Concat(r.reverse, l.reverse)
 
-    case PositiveLookAhead(n)  => PositiveLookAhead(n.reverse)
-    case NegativeLookAhead(n)  => NegativeLookAhead(n.reverse)
-    case PositiveLookBehind(n) => PositiveLookBehind(n.reverse)
-    case NegativeLookBehind(n) => NegativeLookBehind(n.reverse)
+    case PositiveLookAhead(n)  => PositiveLookAhead(n)
+    case NegativeLookAhead(n)  => NegativeLookAhead(n)
+    case PositiveLookBehind(n) => PositiveLookBehind(n)
+    case NegativeLookBehind(n) => NegativeLookBehind(n)
 
     case Star(n)  => Star(n.reverse)
     case Plus(n)  => Plus(n.reverse)

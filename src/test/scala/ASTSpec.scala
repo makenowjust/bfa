@@ -8,11 +8,7 @@ class ASTSpec extends WordSpec with MustMatchers {
   "reverse" must {
     List[(String, AST)](
       ("foo", Concat(Literal('o'), Concat(Literal('o'), Literal('f')))),
-      ("fo|o", Alt(Concat(Literal('o'), Literal('f')), Literal('o'))),
-      ("(?=fo)", PositiveLookAhead(Concat(Literal('o'), Literal('f')))),
-      ("(?!fo)", NegativeLookAhead(Concat(Literal('o'), Literal('f')))),
-      ("(?<=fo)", PositiveLookBehind(Concat(Literal('o'), Literal('f')))),
-      ("(?<!fo)", NegativeLookBehind(Concat(Literal('o'), Literal('f'))))
+      ("fo|o", Alt(Concat(Literal('o'), Literal('f')), Literal('o')))
     ).foreach { case (s, n) =>
       s"""reverse "$s"""" in {
         Parser.parse(s).get.reverse must be(n)
@@ -25,6 +21,10 @@ class ASTSpec extends WordSpec with MustMatchers {
       NegativeLookAhead(Empty),
       PositiveLookBehind(Empty),
       NegativeLookBehind(Empty),
+      PositiveLookAhead(Concat(Literal('f'), Literal('o'))),
+      NegativeLookAhead(Concat(Literal('f'), Literal('o'))),
+      PositiveLookBehind(Concat(Literal('f'), Literal('o'))),
+      NegativeLookBehind(Concat(Literal('f'), Literal('o'))),
       Star(Empty),
       Plus(Empty),
       Quest(Empty),
