@@ -5,60 +5,36 @@ import scala.annotation.tailrec
 sealed abstract class AST {
   import AST._
 
-  def matches(s: String): Boolean = matches(Reader(s)) exists { _.eof }
+  def matches(s: String): Boolean = matches(Reader(s), re => re.eof )
 
-  private def matches(re: Reader): Option[Reader] = this match {
-    case Alt(l, r)    => matchesAlt(re, l, r)
-    case Concat(l, r) => matchesConcat(re, l, r)
+  private def matches(re: Reader, cont: (Reader) => Boolean): Boolean = {
+    def always(re: Reader) = true
 
-    case PositiveLookAhead(n)  => matchesPositiveLookAhead(re, n)
-    case NegativeLookAhead(n)  => matchesNegativeLookAhead(re, n)
-    case PositiveLookBehind(n) => matchesPositiveLookBehind(re, n)
-    case NegativeLookBehind(n) => matchesNegativeLookBehind(re, n)
+    def loop(n: AST, re: Reader, cont: (Reader) => Boolean): Boolean =
+      n.matches(re, re => loop(n, re, cont)) || cont(re)
 
-    case Star(n)  => matchesStar(re, n)
-    case Plus(n)  => matchesPlus(re, n)
-    case Quest(n) => matchesQuest(re, n)
+    this match {
+      case Alt(l, r)    => l.matches(re, cont) || r.matches(re, cont)
+      case Concat(l, r) => l.matches(re, re => r.matches(re, cont))
 
-    case Literal(c) => matchesLiteral(re, c)
-    case Empty      => matchesEmpty(re)
-  }
+      case PositiveLookAhead(n)  =>
+        n.matches(re.forward, always _) && cont(re)
+      case NegativeLookAhead(n)  =>
+        !n.matches(re.forward, always _) && cont(re)
+      case PositiveLookBehind(n) =>
+        n.reverse.matches(re.backward, always _) && cont(re)
+      case NegativeLookBehind(n) =>
+        !n.reverse.matches(re.backward, always _) && cont(re)
 
-  private[this] def matchesAlt(re: Reader, l: AST, r: AST) =
-    l.matches(re) orElse r.matches(re)
+      case Star(n)  => loop(n, re, cont)
+      case Plus(n)  => n.matches(re, re => loop(n, re, cont))
+      case Quest(n) => n.matches(re, cont) || cont(re)
 
-  private[this] def matchesConcat(re: Reader, l: AST, r: AST) =
-    l.matches(re) flatMap { r.matches(_) }
-
-  private[this] def matchesPositiveLookAhead(re: Reader, n: AST) =
-    n.matches(re.forward) map { _ => re }
-
-  private[this] def matchesNegativeLookAhead(re: Reader, n: AST) =
-    n.matches(re.forward) orElse Some(re)
-
-  private[this] def matchesPositiveLookBehind(re: Reader, n: AST) =
-    n.reverse.matches(re.backward) map { _ => re }
-
-  private[this] def matchesNegativeLookBehind(re: Reader, n: AST) =
-    n.reverse.matches(re.backward) orElse Some(re)
-
-  @tailrec
-  private[this] def matchesStar(re: Reader, n: AST): Option[Reader] =
-    n.matches(re) match {
-      case Some(re) => matchesStar(re, n)
-      case None     => Some(re)
+      case Literal(c) =>
+        if (re.current == Some(c)) cont(re.next) else false
+      case Empty      => cont(re)
     }
-
-  private[this] def matchesPlus(re: Reader, n: AST) =
-    n.matches(re) flatMap { matchesStar(_, n) }
-
-  private[this] def matchesQuest(re: Reader, n: AST) =
-    n.matches(re) orElse Some(re)
-
-  private[this] def matchesLiteral(re: Reader, c: Char) =
-    if (re.current == Some(c)) Some(re.next) else None
-
-  private[this] def matchesEmpty(re: Reader) = Some(re)
+  }
 
   def reverse: AST = this match {
     case Alt(l, r)    => Alt(l.reverse, r.reverse)

@@ -43,6 +43,8 @@ class ASTSpec extends WordSpec with MustMatchers {
       ("foo?", (List("foo", "fo"), List("fooo", "f"))),
       ("foo+", (List("foo", "foooo", "fooooooo"), List("fo"))),
       ("f?oo*", (List("foo", "o", "oo", "ooo", "foooo"), List("f", "fof"))),
+      ("fo*o", (List("fo", "foo", "fooo"), List("f", "ff", "fof"))),
+      ("fo+o", (List("foo", "fooo"), List("f", "fo", "ff", "fof"))),
       ("fo(o|f)(?<=(o|f)o)", (List("foo"), List("fof", "ffo"))),
       ("fo(o|f)(?<!(a|r)r)", (List("foo", "fof"), List("far", "frr"))),
       ("(?=f(o|f))(f|o)oo", (List("foo"), List("ooo", "ffo", "ofo"))),
