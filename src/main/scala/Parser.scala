@@ -1,7 +1,5 @@
 package bfa
 
-import scala.util.parsing.combinator._
-
 class Parser extends RegexParsers {
   import AST._
 
