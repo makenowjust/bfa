@@ -25,7 +25,7 @@ sealed abstract class AST {
   def matches(s: String): Boolean = matches(Reader(s), re => done(re.eof)).result
 
   private def matches(re: Reader, cont: (Reader) => TailRec[Boolean]): TailRec[Boolean] = {
-    val success = (re: Reader) => done(true)
+    val success = (re: Reader) => done(re.eof)
     def and(right: => TailRec[Boolean]) = (left: Boolean) =>
       if (left) tailcall(right) else done(false)
     def or(right: => TailRec[Boolean]) = (left: Boolean) =>
