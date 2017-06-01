@@ -1,5 +1,7 @@
 package bfa
 
+import scala.util.control.TailCalls._
+
 object AST {
   final case class Alt(left: AST, right: AST)    extends AST
   final case class Concat(left: AST, right: AST) extends AST
@@ -20,34 +22,38 @@ object AST {
 sealed abstract class AST {
   import AST._
 
-  def matches(s: String): Boolean = matches(Reader(s), re => re.eof)
+  def matches(s: String): Boolean = matches(Reader(s), re => done(re.eof)).result
 
-  private def matches(re: Reader, cont: (Reader) => Boolean): Boolean = {
-    def always(re: Reader) = true
+  private def matches(re: Reader, cont: (Reader) => TailRec[Boolean]): TailRec[Boolean] = {
+    val success = (re: Reader) => done(true)
+    def and(right: => TailRec[Boolean]) = (left: Boolean) =>
+      if (left) tailcall(right) else done(false)
+    def or(right: => TailRec[Boolean]) = (left: Boolean) =>
+      if (left) done(true) else tailcall(right)
 
-    def loop(n: AST, re: Reader, cont: (Reader) => Boolean): Boolean =
-      n.matches(re, re => loop(n, re, cont)) || cont(re)
+    def loop(n: AST, re: Reader, cont: (Reader) => TailRec[Boolean]): TailRec[Boolean] =
+      tailcall(n.matches(re, re => loop(n, re, cont))).flatMap(or(cont(re)))
 
     this match {
-      case Alt(l, r)    => l.matches(re, cont) || r.matches(re, cont)
-      case Concat(l, r) => l.matches(re, re => r.matches(re, cont))
+      case Alt(l, r)    => tailcall(l.matches(re, cont)).flatMap(or(r.matches(re, cont)))
+      case Concat(l, r) => tailcall(l.matches(re, re => tailcall(r.matches(re, cont))))
 
       case PositiveLookAhead(n)  =>
-        n.matches(re.forward, always _) && cont(re)
+        tailcall(n.matches(re.forward, success)).flatMap(and(cont(re)))
       case NegativeLookAhead(n)  =>
-        !n.matches(re.forward, always _) && cont(re)
+        tailcall(n.matches(re.forward, success)).map(!_).flatMap(and(cont(re)))
       case PositiveLookBehind(n) =>
-        n.reverse.matches(re.backward, always _) && cont(re)
+        tailcall(n.reverse.matches(re.backward, success)).flatMap(and(cont(re)))
       case NegativeLookBehind(n) =>
-        !n.reverse.matches(re.backward, always _) && cont(re)
+        tailcall(n.reverse.matches(re.backward, success)).map(!_).flatMap(and(cont(re)))
 
       case Star(n)  => loop(n, re, cont)
-      case Plus(n)  => n.matches(re, re => loop(n, re, cont))
-      case Quest(n) => n.matches(re, cont) || cont(re)
+      case Plus(n)  => tailcall(n.matches(re, re => loop(n, re, cont)))
+      case Quest(n) => tailcall(n.matches(re, cont)).flatMap(or(cont(re)))
 
       case Literal(c) =>
-        if (re.current == Some(c)) cont(re.next) else false
-      case Empty      => cont(re)
+        if (re.current == Some(c)) tailcall(cont(re.next)) else done(false)
+      case Empty      => tailcall(cont(re))
     }
   }
 

@@ -66,5 +66,9 @@ class ASTSpec extends WordSpec with MustMatchers {
         }
       }
     }
+
+    "match against large string without StackOverflow" in {
+      Parser.parse("a*").get.matches("a" * 10000) must be(true)
+    }
   }
 }
