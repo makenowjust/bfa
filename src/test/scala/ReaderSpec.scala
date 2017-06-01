@@ -13,6 +13,12 @@ class ReaderSpec extends WordSpec with MustMatchers {
     }
   }
 
+  "next" must {
+    "work fine with over using" in {
+      Reader("a").next.next.next.backward.current must be(Some('a'))
+    }
+  }
+
   "current and next" must {
     "work fine" in {
       val re1 = Reader("abc")
