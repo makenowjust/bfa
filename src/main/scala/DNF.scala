@@ -7,7 +7,7 @@ object DNF {
   /**
    * Create a new DNF (OrSet)
    *
-   * @param dnf a set of set of symbols
+   * @param dnf a set of tuple of set of symbols
    */
   def apply(dnf: Set[(Set[Symbol], Set[Symbol])]): OrSet =
     OrSet(dnf map { case (ts, fs) => AndSet(ts, fs) })
@@ -28,6 +28,13 @@ object DNF {
    */
   final case class AndSet(trues: Set[Symbol], falses: Set[Symbol]) {
     /**
+     * Is this set a singleton?
+     */
+    def isSingleton: Boolean =
+      this.trues.size == 0 && this.falses.size == 1 ||
+      this.trues.size == 1 && this.falses.size == 0
+
+    /**
      * Evaluate this AndSet with given set.
      *
      * @param trues symbols set to replace as true
@@ -35,6 +42,29 @@ object DNF {
      */
     def evaluate(trues: Set[Symbol]): Boolean =
       (this.trues subsetOf trues) && (this.falses & trues).isEmpty
+
+    /**
+     * Invert this AndSet by using De Morgan's law.
+     */
+    def invert: OrSet =
+      OrSet(
+        this.trues.map { s => AndSet(Set.empty, Set(s)) } |
+        this.falses.map { s => AndSet(Set(s), Set.empty) })
+
+    /**
+     * Concat this and other AndSet.
+     */
+    def concat(other: AndSet): AndSet =
+      AndSet(
+        this.trues | other.trues,
+        this.falses | other.falses)
+  }
+
+  object AndSet {
+    /**
+     * Create an empty AndSet.
+     */
+    def empty: AndSet = AndSet(Set.empty, Set.empty)
   }
 
   /**
@@ -48,6 +78,19 @@ object DNF {
      * @return an evaluation result using given symbols
      */
     def evaluate(trues: Set[Symbol]): Boolean =
-      andSets.exists(_.evaluate(trues))
+      this.andSets.exists(_.evaluate(trues))
+
+    /**
+     * Invert this OrSet using De Morgan's law.
+     */
+    def invert: OrSet = OrSet(
+      this.andSets
+        .map { a => a.invert }
+        .foldLeft(Set(AndSet.empty)) { case (as, OrSet(as2)) =>
+          for {
+            a <- as
+            a2 <- as2
+          } yield a.concat(a2)
+        })
   }
 }
