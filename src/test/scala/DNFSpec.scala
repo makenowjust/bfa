@@ -63,4 +63,19 @@ class DNFSpec extends WordSpec with MustMatchers {
       DNF(Set((empty, a), (empty, b))).invert must be(DNF(Set((ab, empty))))
     }
   }
+
+  "toString" must {
+    "return a string with parenthesis" in {
+      DNF(Set((Set('A, 'B), Set.empty))).toString must be("(A ∧ B)")
+      DNF(Set((Set('A), Set('B)))).toString must be("(A ∧ ¬B)")
+      DNF(Set((Set('A), Set('B)), (Set('C), Set('D)))).toString must be("(A ∧ ¬B) ∨ (C ∧ ¬D)")
+    }
+
+    "return a string without parenthesis if singleton or empty set" in {
+      DNF(Set((Set.empty, Set.empty))).toString must be("1")
+      DNF(Set((Set('A), Set.empty))).toString must be("A")
+      DNF(Set((Set.empty, Set('A)))).toString must be("¬A")
+      DNF(Set.empty).toString must be("0")
+    }
+  }
 }

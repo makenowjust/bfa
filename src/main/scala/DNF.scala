@@ -28,6 +28,12 @@ object DNF {
    */
   final case class AndSet(trues: Set[Symbol], falses: Set[Symbol]) {
     /**
+     * Is this set empty?
+     */
+    def isEmpty: Boolean =
+      this.trues.size == 0 && this.falses.size == 0
+
+    /**
      * Is this set a singleton?
      */
     def isSingleton: Boolean =
@@ -58,6 +64,16 @@ object DNF {
       AndSet(
         this.trues | other.trues,
         this.falses | other.falses)
+
+    override def toString: String = {
+      if (this.isEmpty) {
+        "1"
+      } else {
+        val ts = this.trues.toArray.map { s => s.name }
+        val fs = this.falses.toArray.map { s => s"¬${s.name}" }
+        (ts ++ fs).mkString(" ∧ ")
+      }
+    }
   }
 
   object AndSet {
@@ -92,5 +108,13 @@ object DNF {
             a2 <- as2
           } yield a.concat(a2)
         })
+
+    override def toString: String = if (this.andSets.isEmpty) {
+      "0"
+    } else {
+      this.andSets.map { as =>
+        if (as.isEmpty || as.isSingleton) as.toString else s"($as)"
+      }.mkString(" ∨ ")
+    }
   }
 }
