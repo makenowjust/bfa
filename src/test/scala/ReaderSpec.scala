@@ -9,7 +9,7 @@ class ReaderSpec extends WordSpec with MustMatchers {
     }
 
     "check eof not if true" in {
-      Reader("foo").eof must not be(true)
+      Reader("foo").eof must not be (true)
     }
   }
 

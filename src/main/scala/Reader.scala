@@ -15,11 +15,17 @@ sealed trait Reader {
 object Reader {
   def apply(s: String): Reader = ReaderImpl(s, 0, true)
 
-  private final case class ReaderImpl(text: String, offset: Int, forwarding: Boolean) extends Reader {
+  private final case class ReaderImpl(text: String,
+                                      offset: Int,
+                                      forwarding: Boolean)
+      extends Reader {
     def current: Option[Char] =
       if (0 <= index && index < text.length) Some(text(index)) else None
 
-    def next: Reader = ReaderImpl(text, (offset + direction).min(text.length).max(0), forwarding)
+    def next: Reader =
+      ReaderImpl(text,
+                 (offset + direction).min(text.length).max(0),
+                 forwarding)
 
     private[this] def index = if (forwarding) offset else offset - 1
 

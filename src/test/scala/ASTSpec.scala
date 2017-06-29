@@ -9,10 +9,11 @@ class ASTSpec extends WordSpec with MustMatchers {
     List(
       ("foo", Concat(Literal('o'), Concat(Literal('o'), Literal('f')))),
       ("fo|o", Alt(Concat(Literal('o'), Literal('f')), Literal('o')))
-    ).foreach { case (s, n) =>
-      s"""reverse "$s"""" in {
-        Parser.parse(s).get.reverse must be(n)
-      }
+    ).foreach {
+      case (s, n) =>
+        s"""reverse "$s"""" in {
+          Parser.parse(s).get.reverse must be(n)
+        }
     }
 
     List(
@@ -50,21 +51,22 @@ class ASTSpec extends WordSpec with MustMatchers {
       ("(?=f(o|f)(o|f)*)(f|o)oo", (List("foo"), List("ooo", "ffo", "ofo"))),
       ("(?!b(b|a)(b|a)*)(f|o)oo", (List("foo", "ooo"), List("bao", "bbo"))),
       ("(?=f(o|f)o(?<=(o|f)*o(o|f))(o|f)*)(o|f)(o|f)(o|f)",
-        (List("foo"), List("ff", "ofo", "ffo", "fff", "fooo"))),
+       (List("foo"), List("ff", "ofo", "ffo", "fff", "fooo"))),
       ("(o|f)(o|f)(o|f)(?<=(?=(o|f)o(o|f)*)(o|f)*f(o|f)o)",
-        (List("foo"), List("ff", "ofo", "ffo", "fff", "fooo")))
-    ).foreach { case (s, (oks, fails)) =>
-      oks.foreach { ok =>
-        s"""match "$s" against "$ok"""" in {
-          Parser.parse(s).get.matches(ok) must be(true)
+       (List("foo"), List("ff", "ofo", "ffo", "fff", "fooo")))
+    ).foreach {
+      case (s, (oks, fails)) =>
+        oks.foreach { ok =>
+          s"""match "$s" against "$ok"""" in {
+            Parser.parse(s).get.matches(ok) must be(true)
+          }
         }
-      }
 
-      fails.foreach { fail =>
-        s"""not match "$s" against "$fail"""" in {
-          Parser.parse(s).get.matches(fail) must not be(true)
+        fails.foreach { fail =>
+          s"""not match "$s" against "$fail"""" in {
+            Parser.parse(s).get.matches(fail) must not be (true)
+          }
         }
-      }
     }
 
     "match against large string without StackOverflow" in {

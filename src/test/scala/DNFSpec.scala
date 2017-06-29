@@ -68,7 +68,8 @@ class DNFSpec extends WordSpec with MustMatchers {
     "return a string with parenthesis" in {
       DNF(Set((Set('A, 'B), Set.empty))).toString must be("(A ∧ B)")
       DNF(Set((Set('A), Set('B)))).toString must be("(A ∧ ¬B)")
-      DNF(Set((Set('A), Set('B)), (Set('C), Set('D)))).toString must be("(A ∧ ¬B) ∨ (C ∧ ¬D)")
+      DNF(Set((Set('A), Set('B)), (Set('C), Set('D)))).toString must be(
+        "(A ∧ ¬B) ∨ (C ∧ ¬D)")
     }
 
     "return a string without parenthesis if singleton or empty set" in {
