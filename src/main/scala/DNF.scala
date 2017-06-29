@@ -6,12 +6,28 @@ package bfa
 object DNF {
 
   /**
-    * Create a new DNF (OrSet)
+    * Convert AndSet into OrSet (for DSL).
     *
-    * @param dnf a set of tuple of set of symbols
+    * @param andSets an AndSet converted into OrSet
     */
-  def apply(dnf: Set[(Set[Symbol], Set[Symbol])]): OrSet =
-    OrSet(dnf map { case (ts, fs) => AndSet(ts, fs) })
+  def apply(andSet: AndSet): OrSet = OrSet(Set(andSet))
+
+  /**
+    * Identity (for DSL).
+    *
+    * @param orSet same as the result.
+    */
+  def apply(orSet: OrSet): OrSet = orSet
+
+  /**
+    * Create a singleton (for DSL).
+    */
+  def symbol(s: Symbol): AndSet = AndSet(Set(s), Set.empty)
+
+  /**
+    * Create a not-version singleton (for DSL).
+    */
+  def not(s: Symbol): AndSet = AndSet(Set.empty, Set(s))
 
   /**
     * AndSet is a tuple of two set:
@@ -56,12 +72,8 @@ object DNF {
       */
     def invert: OrSet =
       OrSet(
-        this.trues.map { s =>
-          AndSet(Set.empty, Set(s))
-        } |
-          this.falses.map { s =>
-            AndSet(Set(s), Set.empty)
-          })
+        this.trues.map(DNF.not)
+          | this.falses.map(DNF.symbol))
 
     /**
       * Concat this and other AndSet.
@@ -84,14 +96,6 @@ object DNF {
     }
   }
 
-  object AndSet {
-
-    /**
-      * Create an empty AndSet.
-      */
-    def empty: AndSet = AndSet(Set.empty, Set.empty)
-  }
-
   /**
     * OrSet is DNF, which is a set of set of symbols.
     */
@@ -109,19 +113,18 @@ object DNF {
     /**
       * Invert this OrSet using De Morgan's law.
       */
-    def invert: OrSet =
-      OrSet(
-        this.andSets
-          .map { a =>
-            a.invert
-          }
-          .foldLeft(Set(AndSet.empty)) {
-            case (as, OrSet(as2)) =>
-              for {
-                a <- as
-                a2 <- as2
-              } yield a.concat(a2)
-          })
+    def invert: OrSet = {
+      val ass = this.andSets
+        .map(_.invert)
+        .foldLeft(Set(DNF.`1`)) {
+          case (as, OrSet(as2)) =>
+            for {
+              a <- as
+              a2 <- as2
+            } yield a ∧ a2
+        }
+      OrSet(ass)
+    }
 
     override def toString: String =
       if (this.andSets.isEmpty) {
@@ -129,9 +132,25 @@ object DNF {
       } else {
         this.andSets
           .map { as =>
-            if (as.isEmpty || as.isSingleton) as.toString else s"($as)"
+            if (as.isEmpty || as.isSingleton || this.andSets.size == 1)
+              as.toString
+            else s"($as)"
           }
           .mkString(" ∨ ")
       }
+  }
+
+  val `1` = AndSet(Set.empty, Set.empty)
+  val `0` = OrSet(Set.empty)
+
+  implicit class AndSetDSL(val self: AndSet) extends AnyVal {
+    def ∧(other: AndSet): AndSet = self.concat(other)
+    def ∨(other: AndSet): OrSet = OrSet(Set(self, other))
+    def ∨(other: OrSet): OrSet = OrSet(Set(self) | other.andSets)
+  }
+
+  implicit class OrSetDSL(val self: OrSet) extends AnyVal {
+    def ∨(other: AndSet): OrSet = OrSet(self.andSets | Set(other))
+    def ∨(other: OrSet): OrSet = OrSet(self.andSets | other.andSets)
   }
 }
