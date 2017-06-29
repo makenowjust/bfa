@@ -81,6 +81,24 @@ object DNF {
     def concat(other: AndSet): AndSet =
       AndSet(this.trues | other.trues, this.falses | other.falses)
 
+    def replace(map: Map[Symbol, AndSet]): OrSet = {
+      val ass1 = this.trues
+        .foldLeft(Option(DNF.`1`)) { (oas, t) =>
+          for {
+            as1 <- oas
+            as2 <- map.get(t)
+          } yield as1 ∧ as2
+        }
+        .toSet
+      val ass2 = this.falses.foldLeft(ass1) { (ass, t) =>
+        for {
+          as1 <- ass
+          as2 <- map.getOrElse(t, DNF.`1`).invert.andSets
+        } yield as1 ∧ as2
+      }
+      OrSet(ass2)
+    }
+
     override def toString: String = {
       if (this.isEmpty) {
         "1"
@@ -125,6 +143,9 @@ object DNF {
         }
       OrSet(ass)
     }
+
+    def replace(map: Map[Symbol, AndSet]): OrSet =
+      this.andSets.map(_.replace(map)).foldLeft(DNF.`0`) { _ ∨ _ }
 
     override def toString: String =
       if (this.andSets.isEmpty) {
