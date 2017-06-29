@@ -1,8 +1,11 @@
+sudo: false
+
 language: scala
 scala:
   - 2.12.2
 jdk:
   - oraclejdk8
+
 script:
   - sbt ++$TRAVIS_SCALA_VERSION test
   - sbt ++$TRAVIS_SCALA_VERSION scalafmt::test test:scalafmt::test sbt:scalafmt::test
