@@ -138,7 +138,7 @@ class DNFSpec extends WordSpec with MustMatchers {
   }
 
   "toString" must {
-    "return a string without patenthesis if empty set" in {
+    "return a string without parenthesis if empty set" in {
       DNF(`1`).toString must be("1")
       DNF(`0`).toString must be("0")
     }
