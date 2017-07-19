@@ -121,13 +121,12 @@ object DNF {
       if (this.isEmpty) {
         "1"
       } else {
-        val ts = this.trues.toArray.map { s =>
-          s.name
-        }
-        val fs = this.falses.toArray.map { s =>
-          s"¬${s.name}"
-        }
-        (ts ++ fs).mkString(" ∧ ")
+        (this.trues | this.falses).toArray
+          .sortBy { _.name }
+          .map { s =>
+            if (this.falses.contains(s)) s"¬${s.name}" else s.name
+          }
+          .mkString(" ∧ ")
       }
     }
   }
