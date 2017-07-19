@@ -108,6 +108,22 @@ class DNFSpec extends WordSpec with MustMatchers {
     }
   }
 
+  "contains" must {
+    "return true if it has this symbol" in {
+      A.contains('A) must be(true)
+      `¬A`.contains('A) must be(true)
+      (A ∧ `¬B`).contains('A) must be(true)
+      (A ∧ `¬B`).contains('B) must be(true)
+    }
+
+    "return false if it doesn't have this symbol" in {
+      A.contains('B) must be(false)
+      `¬A`.contains('B) must be(false)
+      (A ∧ `¬B`).contains('C) must be(false)
+      (A ∧ `¬B`).contains('C) must be(false)
+    }
+  }
+
   "toString" must {
     "return a string without patenthesis if empty set" in {
       DNF(`1`).toString must be("1")
