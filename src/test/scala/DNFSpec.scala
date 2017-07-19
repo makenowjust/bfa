@@ -96,6 +96,18 @@ class DNFSpec extends WordSpec with MustMatchers {
     }
   }
 
+  "isFalseEvery" must {
+    "return true if the expression is contraction" in {
+      (A ∧ `¬A`).isFalseEvery must be(true)
+    }
+
+    "return false if not" in {
+      A.isFalseEvery must be(false)
+      B.isFalseEvery must be(false)
+      (A ∧ B).isFalseEvery must be(false)
+    }
+  }
+
   "toString" must {
     "return a string without patenthesis if empty set" in {
       DNF(`1`).toString must be("1")

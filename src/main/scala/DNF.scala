@@ -101,6 +101,8 @@ object DNF {
 
     def symbols: Set[Symbol] = this.trues | this.falses
 
+    def isFalseEvery: Boolean = !(this.trues & this.falses).isEmpty
+
     override def toString: String = {
       if (this.isEmpty) {
         "1"
