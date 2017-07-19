@@ -81,6 +81,9 @@ object DNF {
     def concat(other: AndSet): AndSet =
       AndSet(this.trues | other.trues, this.falses | other.falses)
 
+    /**
+      * Replace symbol by given map.
+      */
     def replace(map: Map[Symbol, AndSet]): OrSet = {
       val ass1 = this.trues
         .foldLeft(Option(DNF.`1`)) { (oas, t) =>
@@ -99,8 +102,14 @@ object DNF {
       OrSet(ass2)
     }
 
+    /**
+      * Return a set of symbols which are used in this expression.
+      */
     def symbols: Set[Symbol] = this.trues | this.falses
 
+    /**
+      * Return true if this expression is contradiction.
+      */
     def isFalseEvery: Boolean = !(this.trues & this.falses).isEmpty
 
     override def toString: String = {
@@ -148,9 +157,15 @@ object DNF {
       OrSet(ass)
     }
 
+    /**
+      * Replace symbol by given map.
+      */
     def replace(map: Map[Symbol, AndSet]): OrSet =
       this.andSets.map(_.replace(map)).foldLeft(DNF.`0`) { _ ∨ _ }
 
+    /**
+      * Return a set of symbols which are used in this expression.
+      */
     def symbols = this.andSets.foldLeft(Set.empty[Symbol]) { _ | _.symbols }
 
     override def toString: String =
