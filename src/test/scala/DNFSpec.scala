@@ -122,6 +122,7 @@ class DNFSpec extends WordSpec with MustMatchers {
     "return a string without parenthesis if single expression" in {
       DNF(A ∧ B).toString must be("A ∧ B")
       DNF(A ∧ `¬B`).toString must be("A ∧ ¬B")
+      DNF(`¬A` ∧ B).toString must be("¬A ∧ B")
     }
 
     "return complex string" in {
