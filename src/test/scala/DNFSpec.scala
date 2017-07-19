@@ -82,6 +82,20 @@ class DNFSpec extends WordSpec with MustMatchers {
     }
   }
 
+  "symbols" must {
+    "return a set of symbols" in {
+      DNF(A).symbols must be(Set('A))
+      DNF(`¬A`).symbols must be(Set('A))
+      DNF(A ∧ B).symbols must be(Set('A, 'B))
+      DNF(A ∨ B).symbols must be(Set('A, 'B))
+    }
+
+    "return an empty set against true or false" in {
+      DNF(`0`).symbols must be(Set.empty)
+      DNF(`1`).symbols must be(Set.empty)
+    }
+  }
+
   "toString" must {
     "return a string without patenthesis if empty set" in {
       DNF(`1`).toString must be("1")

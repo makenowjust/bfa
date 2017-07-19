@@ -99,6 +99,8 @@ object DNF {
       OrSet(ass2)
     }
 
+    def symbols: Set[Symbol] = this.trues | this.falses
+
     override def toString: String = {
       if (this.isEmpty) {
         "1"
@@ -146,6 +148,8 @@ object DNF {
 
     def replace(map: Map[Symbol, AndSet]): OrSet =
       this.andSets.map(_.replace(map)).foldLeft(DNF.`0`) { _ ∨ _ }
+
+    def symbols = this.andSets.foldLeft(Set.empty[Symbol]) { _ | _.symbols }
 
     override def toString: String =
       if (this.andSets.isEmpty) {
