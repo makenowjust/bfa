@@ -112,6 +112,11 @@ object DNF {
       */
     def isFalseEvery: Boolean = !(this.trues & this.falses).isEmpty
 
+    /**
+      * Check to contain given symbol in this expression.
+      */
+    def contains(s: Symbol) = this.trues.contains(s) || this.falses.contains(s)
+
     override def toString: String = {
       if (this.isEmpty) {
         "1"
@@ -167,6 +172,24 @@ object DNF {
       * Return a set of symbols which are used in this expression.
       */
     def symbols = this.andSets.foldLeft(Set.empty[Symbol]) { _ | _.symbols }
+
+    /**
+      * Convert to full DNF.
+      */
+    def toFull: OrSet = {
+      val andSets1 = this.andSets.filter { !_.isFalseEvery }
+      val symbols = andSets.foldLeft(Set.empty[Symbol]) { _ | _.symbols }
+      val andSets2 = symbols.foldLeft(andSets1) { (andSets, s) =>
+        andSets.flatMap { andSet =>
+          if (andSet.contains(s)) {
+            Set(andSet)
+          } else {
+            Set(andSet ∧ DNF.symbol(s), andSet ∧ DNF.not(s))
+          }
+        }
+      }
+      OrSet(andSets2)
+    }
 
     override def toString: String =
       if (this.andSets.isEmpty) {
