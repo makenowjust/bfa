@@ -124,6 +124,19 @@ class DNFSpec extends WordSpec with MustMatchers {
     }
   }
 
+  "toFull" must {
+    "do nothing if this is already full DNF" in {
+      DNF(A).toFull must be(DNF(A))
+      DNF(`¬A`).toFull must be(DNF(`¬A`))
+      DNF(A ∧ B).toFull must be(DNF(A ∧ B))
+      DNF((A ∧ `¬B`) ∨ (`¬A` ∧ B)).toFull must be(DNF((A ∧ `¬B`) ∨ (`¬A` ∧ B)))
+    }
+
+    "convert to full DNF" in {
+      DNF(A ∨ B).toFull must be(DNF((A ∧ B) ∨ (A ∧ `¬B`) ∨ (`¬A` ∧ B)))
+    }
+  }
+
   "toString" must {
     "return a string without patenthesis if empty set" in {
       DNF(`1`).toString must be("1")
