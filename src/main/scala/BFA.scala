@@ -19,7 +19,7 @@ final case class BFA(
 object BFA {
   import AST._
 
-  def convert(node: AST): BFA =
+  def from(node: AST): BFA =
     new Converter().convert(node)
 
   private final class Converter {
@@ -43,6 +43,7 @@ object BFA {
         val (i1, t1, l1) = this.convertInternal(left)
         val (i2, t2, l2) = this.convertInternal(right)
         (i1 ∨ i2, t1 ++ t2, l1 ++ l2)
+      }
 
       case Concat(left, right) => {
         val (i1, t1, l1) = this.convertInternal(left)
