@@ -36,7 +36,9 @@ sealed abstract class AST {
     def loop(n: AST,
              re: Reader,
              cont: (Reader) => TailRec[Boolean]): TailRec[Boolean] =
-      tailcall(n.matches(re, re2 => if (re == re2) cont(re) else loop(n, re2, cont))).flatMap(or(cont(re)))
+      tailcall(
+        n.matches(re, re2 => if (re == re2) cont(re) else loop(n, re2, cont)))
+        .flatMap(or(cont(re)))
 
     this match {
       case Alt(l, r) =>

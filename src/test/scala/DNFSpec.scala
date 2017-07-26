@@ -69,15 +69,21 @@ class DNFSpec extends WordSpec with MustMatchers {
 
     "replace simple" in {
       DNF(A).replace(Map('A -> B).mapValues(DNF(_)).get _) must be(DNF(B))
-      DNF(`¬A`).replace(Map('A -> B).mapValues(DNF(_)).get _) must be(DNF(`¬B`))
-      DNF(A ∧ B).replace(Map('A -> B, 'B -> B).mapValues(DNF(_)).get _) must be(DNF(B))
-      DNF(A ∧ `¬B`).replace(Map('A -> B, 'B -> B).mapValues(DNF(_)).get _) must be(DNF(B ∧ `¬B`))
+      DNF(`¬A`).replace(Map('A -> B).mapValues(DNF(_)).get _) must be(
+        DNF(`¬B`))
+      DNF(A ∧ B)
+        .replace(Map('A -> B, 'B -> B).mapValues(DNF(_)).get _) must be(DNF(B))
+      DNF(A ∧ `¬B`)
+        .replace(Map('A -> B, 'B -> B).mapValues(DNF(_)).get _) must be(
+        DNF(B ∧ `¬B`))
     }
 
     "replace complex" in {
-      DNF(A ∨ `¬B`).replace(Map('A -> B, 'B -> A ∧ B).mapValues(DNF(_)).get _) must be(
+      DNF(A ∨ `¬B`)
+        .replace(Map('A -> B, 'B -> A ∧ B).mapValues(DNF(_)).get _) must be(
         DNF(B ∨ `¬A` ∨ `¬B`))
-      DNF(A ∧ `¬B`).replace(Map('A -> B, 'B -> A ∧ B).mapValues(DNF(_)).get _) must be(
+      DNF(A ∧ `¬B`)
+        .replace(Map('A -> B, 'B -> A ∧ B).mapValues(DNF(_)).get _) must be(
         DNF((B ∧ `¬A`) ∨ (B ∧ `¬B`)))
     }
   }
