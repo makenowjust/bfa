@@ -84,19 +84,19 @@ object DNF {
     /**
       * Replace symbol by given map.
       */
-    def replace(map: Map[Symbol, AndSet]): OrSet = {
+    def replace(map: Symbol => Option[OrSet]): OrSet = {
       val ass1 = this.trues
-        .foldLeft(Option(DNF.`1`)) { (oas, t) =>
+        .foldLeft(List(DNF.`1`)) { (oas, t) =>
           for {
             as1 <- oas
-            as2 <- map.get(t)
+            as2 <- map(t).getOrElse(DNF.`0`).andSets
           } yield as1 ∧ as2
         }
         .toSet
       val ass2 = this.falses.foldLeft(ass1) { (ass, t) =>
         for {
           as1 <- ass
-          as2 <- map.getOrElse(t, DNF.`1`).invert.andSets
+          as2 <- map(t).getOrElse(DNF(DNF.`1`)).invert.andSets
         } yield as1 ∧ as2
       }
       OrSet(ass2)
@@ -164,7 +164,7 @@ object DNF {
     /**
       * Replace symbol by given map.
       */
-    def replace(map: Map[Symbol, AndSet]): OrSet =
+    def replace(map: Symbol => Option[OrSet]): OrSet =
       this.andSets.map(_.replace(map)).foldLeft(DNF.`0`) { _ ∨ _ }
 
     /**
