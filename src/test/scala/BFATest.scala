@@ -25,4 +25,33 @@ class BFATest extends WordSpec with MustMatchers {
       bfa.matches("a") must be(true)
     }
   }
+
+  "from" must {
+    List(
+      ("foo", (List("foo"), List("bar"))),
+      ("foo?", (List("foo", "fo"), List("fooo", "f"))),
+      ("foo+", (List("foo", "foooo", "fooooooo"), List("fo"))),
+      ("(foo|)*",
+       (List("", "foo", "foofoo", "foofoofoo"), List("f", "fo", "foof"))),
+      ("(foo)+",
+       (List("foo", "foofoo", "foofoofoo"), List("", "f", "fo", "foof"))),
+      ("f?oo*", (List("foo", "o", "oo", "ooo", "foooo"), List("f", "fof"))),
+      ("fo*o", (List("fo", "foo", "fooo"), List("f", "ff", "fof"))),
+      ("fo+o", (List("foo", "fooo"), List("f", "fo", "ff", "fof")))
+    ).foreach {
+      case (s, (oks, fails)) =>
+
+        oks.foreach { ok =>
+          s"""match "$s" against "$ok"""" in {
+            BFA.from(Parser.parse(s).get).matches(ok) must be(true)
+          }
+        }
+
+        fails.foreach { fail =>
+          s"""not match "$s" against "$fail"""" in {
+            BFA.from(Parser.parse(s).get).matches(fail) must not be (true)
+          }
+        }
+    }
+  }
 }
