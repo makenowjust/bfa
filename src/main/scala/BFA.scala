@@ -8,7 +8,6 @@ final case class BFA(
 
   def matches(s: String): Boolean =
     s.foldLeft(init) { (e, c) =>
-        println(e)
         e.replace { s =>
           trans.get((s, c))
         }
