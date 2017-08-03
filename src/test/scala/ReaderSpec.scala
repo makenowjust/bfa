@@ -1,6 +1,6 @@
 package bfa
 
-import org.scalatest._
+import org.scalatest.{WordSpec, MustMatchers}
 
 class ReaderSpec extends WordSpec with MustMatchers {
   "eof" must {
