@@ -16,12 +16,12 @@ class BFATest extends WordSpec with MustMatchers {
 
   "matches" must {
     "match an empty string against an empty BFA" in {
-      val bfa = BFA(DNF(A), Map.empty, Set('A))
+      val bfa = BFA(DNF(A), Map.empty, Set('A), List.empty)
       bfa.matches("") must be(true)
     }
 
     "match a string against a simple BFA" in {
-      val bfa = BFA(DNF(A), Map(('A, 'a') -> DNF(B)), Set('B))
+      val bfa = BFA(DNF(A), Map(('A, 'a') -> DNF(B)), Set('B), List.empty)
       bfa.matches("a") must be(true)
     }
   }
@@ -37,10 +37,15 @@ class BFATest extends WordSpec with MustMatchers {
        (List("foo", "foofoo", "foofoofoo"), List("", "f", "fo", "foof"))),
       ("f?oo*", (List("foo", "o", "oo", "ooo", "foooo"), List("f", "fof"))),
       ("fo*o", (List("fo", "foo", "fooo"), List("f", "ff", "fof"))),
-      ("fo+o", (List("foo", "fooo"), List("f", "fo", "ff", "fof")))
+      ("fo+o", (List("foo", "fooo"), List("f", "fo", "ff", "fof"))),
+      ("fo(o|f)(?<=(o|f)*(o|f)o)", (List("foo"), List("fof", "ffo"))),
+      ("(?=f(o|f)(o|f)*)(f|o)oo", (List("foo"), List("ooo", "ffo", "ofo"))),
+      ("(?=f(o|f)o(?<=(o|f)*o(o|f))(o|f)*)(o|f)(o|f)(o|f)",
+       (List("foo"), List("ff", "ofo", "ffo", "fff", "fooo"))),
+      ("(o|f)(o|f)(o|f)(?<=(?=(o|f)o(o|f)*)(o|f)*f(o|f)o)",
+       (List("foo"), List("ff", "ofo", "ffo", "fff", "fooo")))
     ).foreach {
       case (s, (oks, fails)) =>
-
         oks.foreach { ok =>
           s"""match "$s" against "$ok"""" in {
             BFA.from(Parser.parse(s).get).matches(ok) must be(true)

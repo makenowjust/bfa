@@ -214,6 +214,10 @@ object DNF {
   }
 
   implicit class OrSetDSL(val self: OrSet) extends AnyVal {
+    def ∧(other: AndSet): OrSet =
+      OrSet(self.andSets.map { as =>
+        as ∧ other
+      })
     def ∨(other: AndSet): OrSet = OrSet(self.andSets | Set(other))
     def ∨(other: OrSet): OrSet = OrSet(self.andSets | other.andSets)
   }
