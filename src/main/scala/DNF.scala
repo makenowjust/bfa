@@ -96,7 +96,7 @@ object DNF {
       val ass2 = this.falses.foldLeft(ass1) { (ass, t) =>
         for {
           as1 <- ass
-          as2 <- map(t).getOrElse(DNF(DNF.`1`)).invert.andSets
+          as2 <- map(t).getOrElse(DNF.`0`).invert.andSets
         } yield as1 ∧ as2
       }
       OrSet(ass2)
