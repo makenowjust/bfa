@@ -76,8 +76,14 @@ object BFA {
       case PositiveLookAhead(node) => {
         val (i, t, l, io, ls, to) = this.convertInternal(node)
         val s = this.newSymbol()
-        // NOTE: val i2 = i ∧ DNF.symbol(s)
-        val i2 = DNF.OrSet(i.andSets.map { _ ∧ DNF.symbol(s) })
+        val i2 = i ∧ DNF.symbol(s)
+        (i2, t, Set(s), io, ls ++ l, to)
+      }
+
+      case NegativeLookAhead(node) => {
+        val (i, t, l, io, ls, to) = this.convertInternal(node)
+        val s = this.newSymbol()
+        val i2 = i.invert ∧ DNF.symbol(s)
         (i2, t, Set(s), io, ls ++ l, to)
       }
 
@@ -86,6 +92,18 @@ object BFA {
         val s1 = this.newSymbol()
         val s2 = this.newSymbol()
         (DNF(DNF.symbol(s1) ∧ DNF.symbol(s2)),
+         t,
+         Set(s1),
+         io ∨ i,
+         ls,
+         to ++ List((l ++ ls, Set(s2))))
+      }
+
+      case NegativeLookBehind(node) => {
+        val (i, t, l, io, ls, to) = this.convertInternal(node)
+        val s1 = this.newSymbol()
+        val s2 = this.newSymbol()
+        (DNF(DNF.symbol(s1) ∧ DNF.not(s2)),
          t,
          Set(s1),
          io ∨ i,
