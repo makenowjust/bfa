@@ -5,24 +5,25 @@ import org.scalatest.{WordSpec, MustMatchers}
 class MatchesSpec extends WordSpec with MustMatchers {
   val fixtures =
     List(
-      ("foo", (List("foo"), List("bar"))),
-      ("foo?", (List("foo", "fo"), List("fooo", "f"))),
-      ("foo+", (List("foo", "foooo", "fooooooo"), List("fo"))),
-      ("(foo|)*",
-       (List("", "foo", "foofoo", "foofoofoo"), List("f", "fo", "foof"))),
-      ("(foo)+",
-       (List("foo", "foofoo", "foofoofoo"), List("", "f", "fo", "foof"))),
-      ("f?oo*", (List("foo", "o", "oo", "ooo", "foooo"), List("f", "fof"))),
-      ("fo*o", (List("fo", "foo", "fooo"), List("f", "ff", "fof"))),
-      ("fo+o", (List("foo", "fooo"), List("f", "fo", "ff", "fof"))),
-      ("fo(o|f)(?<=(o|f)*(o|f)o)", (List("foo"), List("fof", "ffo"))),
-      ("fo(o|f)(?<!(a|r)*(a|r)r)", (List("foo", "fof"), List("far", "frr"))),
-      ("(?=f(o|f)(o|f)*)(f|o)oo", (List("foo"), List("ooo", "ffo", "ofo"))),
-      ("(?!b(b|a)(b|a)*)(f|o)oo", (List("foo", "ooo"), List("bao", "bbo"))),
-      ("(?=f(o|f)o(?<=(o|f)*o(o|f))(o|f)*)(o|f)(o|f)(o|f)",
-       (List("foo"), List("ff", "ofo", "ffo", "fff", "fooo"))),
-      ("(o|f)(o|f)(o|f)(?<=(?=(o|f)o(o|f)*)(o|f)*f(o|f)o)",
-       (List("foo"), List("ff", "ofo", "ffo", "fff", "fooo")))
+      ("", (List(""), List("a", "b"))),
+      ("a", (List("a"), List("", "b"))),
+      ("a*", (List("", "a", "aa"), List("b", "ab", "ba", "aba"))),
+      ("a+", (List("a", "aa"), List("", "b", "ab", "ba", "aba"))),
+      ("a?", (List("", "a"), List("b", "aa", "ab"))),
+      ("a|b", (List("a", "b"), List("", "aa", "ab", "ba", "bb"))),
+      ("(a|b)*",
+       (List("", "a", "b", "aa", "ab", "ba", "bb"), List("c", "ac", "bc"))),
+      ("(a?)*", (List("", "a", "aa"), List("b", "ab", "ba", "aba"))),
+      ("b*(ab*ab*)*",
+       (List("", "bb", "aa", "abab", "aabbaabb"), List("a", "ab"))),
+      ("(?=a)(a|b)", (List("a"), List("", "b"))),
+      ("(?!a)(a|b)", (List("b"), List("", "a"))),
+      ("(a|b)(?=(?<=a)b)(a|b)", (List("ab"), List("", "bb"))),
+      ("(a|b)(?=(?<!a)b)(a|b)", (List("bb"), List("", "ab"))),
+      ("(a|b)(?<=a)", (List("a"), List("", "b"))),
+      ("(a|b)(?<!a)", (List("b"), List("", "a"))),
+      ("(a|b)(?<=a(?=b))(a|b)", (List("ab"), List("aa"))),
+      ("(a|b)(?<=a(?!b))(a|b)", (List("aa"), List("ab"))),
     )
 
   "AST#matches" must {
@@ -42,18 +43,18 @@ class MatchesSpec extends WordSpec with MustMatchers {
     }
   }
 
-  "BFA#matches" must {
+  "MBFA#matches" must {
     fixtures.foreach {
       case (s, (oks, fails)) =>
         oks.foreach { ok =>
           s"""match "$s" against "$ok"""" in {
-            BFA.from(Parser.parse(s).get).matches(ok) must be(true)
+            MBFA.from(Parser.parse(s).get).matches(ok) must be(true)
           }
         }
 
         fails.foreach { fail =>
           s"""not match "$s" against "$fail"""" in {
-            BFA.from(Parser.parse(s).get).matches(fail) must not be (true)
+            MBFA.from(Parser.parse(s).get).matches(fail) must not be (true)
           }
         }
     }
