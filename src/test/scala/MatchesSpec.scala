@@ -46,15 +46,34 @@ class MatchesSpec extends WordSpec with MustMatchers {
   "MBFA#matches" must {
     fixtures.foreach {
       case (s, (oks, fails)) =>
+        val mbfa = MBFA.from(Parser.parse(s).get)
         oks.foreach { ok =>
           s"""match "$s" against "$ok"""" in {
-            MBFA.from(Parser.parse(s).get).matches(ok) must be(true)
+            mbfa.matches(ok) must be(true)
           }
         }
 
         fails.foreach { fail =>
           s"""not match "$s" against "$fail"""" in {
-            MBFA.from(Parser.parse(s).get).matches(fail) must not be (true)
+            mbfa.matches(fail) must not be (true)
+          }
+        }
+    }
+  }
+
+  "DFA#matches" must {
+    fixtures.foreach {
+      case (s, (oks, fails)) =>
+        val dfa = MBFA.from(Parser.parse(s).get).toDFA
+        oks.foreach { ok =>
+          s"""match "$s" against "$ok"""" in {
+            dfa.matches(ok) must be(true)
+          }
+        }
+
+        fails.foreach { fail =>
+          s"""not match "$s" against "$fail"""" in {
+            dfa.matches(fail) must not be (true)
           }
         }
     }

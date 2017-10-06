@@ -41,6 +41,8 @@ final case class DNF[V] private (private[bfa] val or: DNF.Or[V]) {
 
   def ∨(other: DNF[V]): DNF[V] = DNF(or | other.or)
 
+  def symbols: Set[V] = or.flatMap { case (ts, fs) => ts | fs }
+
   def evaluate(vs: Set[V]): Boolean = or.exists {
     case (ts, fs) =>
       (ts subsetOf vs) && (fs & vs).isEmpty

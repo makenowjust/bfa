@@ -53,15 +53,15 @@ case class MBFA(
   private[bfa] implicit val fromBooleanAndSymbol =
     new FromBooleanImplicit[Symbol] with FromSymbolImplicit {}
 
-  private case class Run(mainExpr: DNF[Symbol],
-                         subExprs: IndexedSeq[DNF[Symbol]]) {
+  private case class Run(mainExpr: DNF.Full[Symbol],
+                         subExprs: IndexedSeq[DNF.Full[Symbol]]) {
     def update(c: Char): Run = {
       import fromBooleanAndSymbol._
 
       def resolveRefExpr(r: RefExpr): DNF[Symbol] = r match {
         case RefExpr.Ref(n) => {
           val sub = subs(n)
-          val subExpr = sub.update(subExprs(n), c, resolveRefExpr(_))
+          val subExpr = sub.update(subExprs(n).dnf, c, resolveRefExpr(_))
 
           subExpr.replace { v =>
             if (sub.last.contains(v)) DNF.from(true) else DNF.from(v)
@@ -70,13 +70,17 @@ case class MBFA(
         case RefExpr.Var(v) => DNF.from(v)
       }
 
-      Run(main.update(mainExpr, c, resolveRefExpr(_)), (subs zip subExprs).map {
-        case (sub, subExpr) => sub.update(subExpr, c, resolveRefExpr(_))
-      })
+      Run(
+        main.update(mainExpr.dnf, c, resolveRefExpr(_)).toFull,
+        (subs zip subExprs).map {
+          case (sub, subExpr) =>
+            sub.update(subExpr.dnf, c, resolveRefExpr(_)).toFull
+        }
+      )
     }
   }
 
-  def matches(s: String): Boolean = {
+  private def initRun: Run = {
     import fromBooleanAndSymbol._
 
     def resolveRefExpr(r: RefExpr): DNF[Symbol] = r match {
@@ -84,12 +88,67 @@ case class MBFA(
       case RefExpr.Var(v) => DNF.from(v)
     }
 
-    val i = Run(main.init.replace(resolveRefExpr(_)), subs.map { sub =>
-      sub.init.replace(resolveRefExpr(_))
-    })
+    Run(
+      main.init.replace(resolveRefExpr(_)).toFull,
+      subs.map { sub =>
+        sub.init.replace(resolveRefExpr(_)).toFull
+      }
+    )
+  }
 
-    val l = s.foldLeft(i) { case (r, c) => r.update(c) }.mainExpr
-    l.evaluate(main.last)
+  def matches(s: String): Boolean =
+    s.foldLeft(initRun) { case (r, c) => r.update(c) }
+      .mainExpr
+      .dnf
+      .evaluate(main.last)
+
+  def toDFA: DFA = {
+    def step(run: Run,
+             id: Int,
+             qMap: Map[Run, Symbol]): (Int,
+                                       Map[Run, Symbol],
+                                       Symbol,
+                                       Map[(Symbol, Char), Symbol],
+                                       Set[Symbol]) =
+      qMap
+        .get(run)
+        .map { q =>
+          (id, qMap, q, Map[(Symbol, Char), Symbol](), Set[Symbol]())
+        }
+        .getOrElse {
+          val q = Symbol(s"v$id")
+          val id1 = id + 1
+          val qMap1 = qMap + (run -> q)
+
+          val symbols = run.subExprs.foldLeft(run.mainExpr.dnf.symbols) {
+            case (vs, subExpr) => vs | subExpr.dnf.symbols
+          }
+          val mainChars = main.trans.keySet
+            .filter { case (q, _) => symbols.contains(q) }
+            .map(_._2)
+          val chars = subs.foldLeft(mainChars) {
+            case (chars, sub) =>
+              chars | sub.trans.keySet
+                .filter { case (q, _) => symbols.contains(q) }
+                .map(_._2)
+          }
+
+          val l: Set[Symbol] = run.mainExpr.dnf.evaluate(main.last) match {
+            case true  => Set(q)
+            case false => Set.empty
+          }
+
+          val (id2, qMap2, t, l1) =
+            chars.foldLeft((id1, qMap1, Map[(Symbol, Char), Symbol](), l)) {
+              case ((id2, qMap2, t, l1), c) =>
+                val (id3, qMap3, p, pt, pl) = step(run.update(c), id2, qMap2)
+                (id3, qMap3, t + ((q, c) -> p) ++ pt, l1 | pl)
+            }
+          (id2, qMap2, q, t, l1)
+        }
+
+    val (_, _, i, t, l) = step(initRun, 1, Map.empty)
+    DFA(i, t, l)
   }
 }
 
