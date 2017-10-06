@@ -16,6 +16,15 @@ lazy val root = (project in file(".")).settings(
   initialCommands in console := """
   import bfa._
 
+  def a(p: String): Unit = {
+    val node = Parser.parse(p).get
+    val mbfa = MBFA.from(node)
+    val dfa = DFA.from(mbfa)
+    println(s"AST  => ${node}")
+    println(s"MBFA => ${mbfa}")
+    println(s"DFA  => ${dfa}")
+  }
+
   def m(p: String, s: String): Unit = {
     val node = Parser.parse(p).get
     val mbfa = MBFA.from(node)
