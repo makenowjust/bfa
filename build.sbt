@@ -8,7 +8,8 @@ lazy val root = (project in file(".")).settings(
         "-deprecation",
         "-feature",
         "-unchecked",
-        ))),
+      )
+    )),
   name := "bfa",
   libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.6",
   libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1" % Test,

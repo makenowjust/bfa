@@ -23,9 +23,7 @@ object Reader {
       if (0 <= index && index < text.length) Some(text(index)) else None
 
     def next: Reader =
-      ReaderImpl(text,
-                 (offset + direction).min(text.length).max(0),
-                 forwarding)
+      ReaderImpl(text, (offset + direction).min(text.length).max(0), forwarding)
 
     private[this] def index = if (forwarding) offset else offset - 1
 

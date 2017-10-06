@@ -19,7 +19,7 @@ object DNF {
       type Var = V
 
       def from(a: Boolean): DNF[V] = a match {
-        case true => DNF(Set((Set.empty, Set.empty)))
+        case true  => DNF(Set((Set.empty, Set.empty)))
         case false => DNF(Set.empty)
       }
     }
@@ -76,7 +76,7 @@ final case class DNF[V] private (private[bfa] val or: DNF.Or[V]) {
 
   def toFull: Full[V] =
     Full(DNF {
-      val or1 = or.filter { case (ts, fs) => !ts.isEmpty || !fs.isEmpty }
+      val or1 = or.filter { case (ts, fs)  => !ts.isEmpty || !fs.isEmpty }
       val vs = or1.flatMap { case (ts, fs) => ts | fs }
       vs.foldLeft(or1) {
         case (or, v) =>
@@ -96,9 +96,9 @@ final case class DNF[V] private (private[bfa] val or: DNF.Or[V]) {
       or.map {
           case (ts, fs) =>
             (ts.map(_.toString).toList ++ fs.map(v => s"¬$v").toList) match {
-              case List() => "1"
+              case List()  => "1"
               case List(v) => v
-              case vs => vs.toArray.sorted.mkString("(", " ∧ ", ")")
+              case vs      => vs.toArray.sorted.mkString("(", " ∧ ", ")")
             }
         }
         .toArray

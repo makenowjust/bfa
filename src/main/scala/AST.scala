@@ -58,8 +58,8 @@ sealed abstract class AST {
           .map(!_)
           .flatMap(and(cont(re)))
 
-      case Star(n) => loop(n, re, cont)
-      case Plus(n) => tailcall(n.matches(re, re => loop(n, re, cont)))
+      case Star(n)  => loop(n, re, cont)
+      case Plus(n)  => tailcall(n.matches(re, re => loop(n, re, cont)))
       case Quest(n) => tailcall(n.matches(re, cont)).flatMap(or(cont(re)))
 
       case Literal(c) =>
@@ -69,19 +69,19 @@ sealed abstract class AST {
   }
 
   def reverse: AST = this match {
-    case Alt(l, r) => Alt(l.reverse, r.reverse)
+    case Alt(l, r)    => Alt(l.reverse, r.reverse)
     case Concat(l, r) => Concat(r.reverse, l.reverse)
 
-    case PositiveLookAhead(n) => PositiveLookAhead(n)
-    case NegativeLookAhead(n) => NegativeLookAhead(n)
+    case PositiveLookAhead(n)  => PositiveLookAhead(n)
+    case NegativeLookAhead(n)  => NegativeLookAhead(n)
     case PositiveLookBehind(n) => PositiveLookBehind(n)
     case NegativeLookBehind(n) => NegativeLookBehind(n)
 
-    case Star(n) => Star(n.reverse)
-    case Plus(n) => Plus(n.reverse)
+    case Star(n)  => Star(n.reverse)
+    case Plus(n)  => Plus(n.reverse)
     case Quest(n) => Quest(n.reverse)
 
     case Literal(c) => Literal(c)
-    case Empty => Empty
+    case Empty      => Empty
   }
 }

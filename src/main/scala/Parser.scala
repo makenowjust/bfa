@@ -10,9 +10,9 @@ class Parser extends RegexParsers {
 
   def concat: Parser[AST] =
     condition.* ^^ {
-      case Nil => Empty
+      case Nil        => Empty
       case (n :: Nil) => n
-      case (n :: ns) => ns.foldLeft(n) { Concat(_, _) }
+      case (n :: ns)  => ns.foldLeft(n) { Concat(_, _) }
     }
 
   def condition: Parser[AST] =
@@ -42,6 +42,6 @@ class Parser extends RegexParsers {
 object Parser extends Parser {
   def parse(input: String): Option[AST] = parseAll(alt, input) match {
     case Success(re, _) => Some(re)
-    case _ => None
+    case _              => None
   }
 }
