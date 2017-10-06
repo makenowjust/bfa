@@ -1,224 +1,108 @@
 package bfa
 
-/**
-  * DNF provides Disjunctive Normal Form utilities.
-  */
 object DNF {
+  private type Or[V] = Set[And[V]]
+  private type And[V] = (Set[V], Set[V])
 
-  /**
-    * Convert AndSet into OrSet (for DSL).
-    *
-    * @param andSets an AndSet converted into OrSet
-    */
-  def apply(andSet: AndSet): OrSet = OrSet(Set(andSet))
+  final case class Full[V] private[bfa] (dnf: DNF[V])
 
-  /**
-    * Identity (for DSL).
-    *
-    * @param orSet same as the result.
-    */
-  def apply(orSet: OrSet): OrSet = orSet
+  trait From[-A] {
+    type Var
 
-  /**
-    * Create a singleton (for DSL).
-    */
-  def symbol(s: Symbol): AndSet = AndSet(Set(s), Set.empty)
+    def from(a: A): DNF[Var]
+  }
 
-  /**
-    * Create a not-version singleton (for DSL).
-    */
-  def not(s: Symbol): AndSet = AndSet(Set.empty, Set(s))
+  def from[A](a: A)(implicit F: From[A]): DNF[F.Var] = F.from(a)
 
-  /**
-    * AndSet is a tuple of two set:
-    *
-    *   - first set contains '''and''' clause of symbols,
-    *   - second set conatins '''and''' clause of '''not''' symbols.
-    *
-    * {{{
-    * // below means A ∧ ¬B
-    * AndSet(Set('A), Set('B))
-    *
-    * // below means A ∧ B ∧ ¬C ∧ ¬D
-    * AndSet(Set('A, 'B), Set('C, 'D))
-    * }}}
-    */
-  final case class AndSet(trues: Set[Symbol], falses: Set[Symbol]) {
+  trait FromBooleanImplicit[V] {
+    implicit object FromBoolean extends From[Boolean] {
+      type Var = V
 
-    /**
-      * Is this set empty?
-      */
-    def isEmpty: Boolean =
-      this.trues.size == 0 && this.falses.size == 0
-
-    /**
-      * Is this set a singleton?
-      */
-    def isSingleton: Boolean =
-      this.trues.size == 0 && this.falses.size == 1 ||
-        this.trues.size == 1 && this.falses.size == 0
-
-    /**
-      * Evaluate this AndSet with given set.
-      *
-      * @param trues symbols set to replace as true
-      * @return an evaluation result using given set
-      */
-    def evaluate(trues: Set[Symbol]): Boolean =
-      (this.trues subsetOf trues) && (this.falses & trues).isEmpty
-
-    /**
-      * Invert this AndSet by using De Morgan's law.
-      */
-    def invert: OrSet =
-      OrSet(
-        this.trues.map(DNF.not)
-          | this.falses.map(DNF.symbol))
-
-    /**
-      * Concat this and other AndSet.
-      */
-    def concat(other: AndSet): AndSet =
-      AndSet(this.trues | other.trues, this.falses | other.falses)
-
-    /**
-      * Replace symbol by given map.
-      */
-    def replace(map: Symbol => Option[OrSet]): OrSet = {
-      val ass1 = this.trues
-        .foldLeft(List(DNF.`1`)) { (oas, t) =>
-          for {
-            as1 <- oas
-            as2 <- map(t).getOrElse(DNF.`0`).andSets
-          } yield as1 ∧ as2
-        }
-        .toSet
-      val ass2 = this.falses.foldLeft(ass1) { (ass, t) =>
-        for {
-          as1 <- ass
-          as2 <- map(t).getOrElse(DNF.`0`).invert.andSets
-        } yield as1 ∧ as2
-      }
-      OrSet(ass2)
-    }
-
-    /**
-      * Return a set of symbols which are used in this expression.
-      */
-    def symbols: Set[Symbol] = this.trues | this.falses
-
-    /**
-      * Return true if this expression is contradiction.
-      */
-    def isFalseEvery: Boolean = !(this.trues & this.falses).isEmpty
-
-    /**
-      * Check to contain given symbol in this expression.
-      */
-    def contains(s: Symbol) = this.trues.contains(s) || this.falses.contains(s)
-
-    override def toString: String = {
-      if (this.isEmpty) {
-        "1"
-      } else {
-        (this.trues | this.falses).toArray
-          .sortBy { _.name }
-          .map { s =>
-            if (this.falses.contains(s)) s"¬${s.name}" else s.name
-          }
-          .mkString(" ∧ ")
+      def from(a: Boolean): DNF[V] = a match {
+        case true => DNF(Set((Set.empty, Set.empty)))
+        case false => DNF(Set.empty)
       }
     }
   }
+}
 
-  /**
-    * OrSet is DNF, which is a set of set of symbols.
-    */
-  final case class OrSet(andSets: Set[AndSet]) {
+/**
+  * DNF is Disjunctive Normal Form.
+  */
+final case class DNF[V] private (private[bfa] val or: DNF.Or[V]) {
+  import DNF._
 
-    /**
-      * Evaluate this OrSet with given set.
-      *
-      * @param trues symbols to replace as true in this DNF
-      * @return an evaluation result using given symbols
-      */
-    def evaluate(trues: Set[Symbol]): Boolean =
-      this.andSets.exists(_.evaluate(trues))
-
-    /**
-      * Invert this OrSet using De Morgan's law.
-      */
-    def invert: OrSet = {
-      val ass = this.andSets
-        .map(_.invert)
-        .foldLeft(Set(DNF.`1`)) {
-          case (as, OrSet(as2)) =>
-            for {
-              a <- as
-              a2 <- as2
-            } yield a ∧ a2
-        }
-      OrSet(ass)
-    }
-
-    /**
-      * Replace symbol by given map.
-      */
-    def replace(map: Symbol => Option[OrSet]): OrSet =
-      this.andSets.map(_.replace(map)).foldLeft(DNF.`0`) { _ ∨ _ }
-
-    /**
-      * Return a set of symbols which are used in this expression.
-      */
-    def symbols = this.andSets.foldLeft(Set.empty[Symbol]) { _ | _.symbols }
-
-    /**
-      * Convert to full DNF.
-      */
-    def toFull: OrSet = {
-      val andSets1 = this.andSets.filter { !_.isFalseEvery }
-      val symbols = andSets.foldLeft(Set.empty[Symbol]) { _ | _.symbols }
-      val andSets2 = symbols.foldLeft(andSets1) { (andSets, s) =>
-        andSets.flatMap { andSet =>
-          if (andSet.contains(s)) {
-            Set(andSet)
-          } else {
-            Set(andSet ∧ DNF.symbol(s), andSet ∧ DNF.not(s))
-          }
-        }
-      }
-      OrSet(andSets2)
-    }
-
-    override def toString: String =
-      if (this.andSets.isEmpty) {
-        "0"
-      } else {
-        this.andSets
-          .map { as =>
-            if (as.isEmpty || as.isSingleton || this.andSets.size == 1)
-              as.toString
-            else s"($as)"
-          }
-          .mkString(" ∨ ")
-      }
+  def ∧(other: DNF[V]): DNF[V] = DNF {
+    for {
+      (ts1, fs1) <- or
+      (ts2, fs2) <- other.or
+    } yield (ts1 | ts2, fs1 | fs2)
   }
 
-  val `1` = AndSet(Set.empty, Set.empty)
-  val `0` = OrSet(Set.empty)
+  def ∨(other: DNF[V]): DNF[V] = DNF(or | other.or)
 
-  implicit class AndSetDSL(val self: AndSet) extends AnyVal {
-    def ∧(other: AndSet): AndSet = self.concat(other)
-    def ∨(other: AndSet): OrSet = OrSet(Set(self, other))
-    def ∨(other: OrSet): OrSet = OrSet(Set(self) | other.andSets)
+  def evaluate(vs: Set[V]): Boolean = or.exists {
+    case (ts, fs) =>
+      (ts subsetOf vs) && (fs & vs).isEmpty
   }
 
-  implicit class OrSetDSL(val self: OrSet) extends AnyVal {
-    def ∧(other: AndSet): OrSet =
-      OrSet(self.andSets.map { as =>
-        as ∧ other
-      })
-    def ∨(other: AndSet): OrSet = OrSet(self.andSets | Set(other))
-    def ∨(other: OrSet): OrSet = OrSet(self.andSets | other.andSets)
+  def invert(implicit fromBoolean: FromBooleanImplicit[V]): DNF[V] = {
+    import fromBoolean._
+
+    or.foldLeft(DNF.from(true)) {
+      case (dnf, (ts, fs)) =>
+        val or21 = ts.map { v =>
+          ((Set.empty, Set(v))): And[V]
+        }.toSet
+        val or22 = fs.map { v =>
+          ((Set(v), Set.empty)): And[V]
+        }.toSet
+        dnf ∧ DNF(or21 | or22)
+    }
+  }
+
+  def replace[W](f: V => DNF[W])(
+      implicit fromBoolean: FromBooleanImplicit[W]): DNF[W] = {
+    import fromBoolean._
+
+    def r(dnf: DNF[W], vs: Set[V], f: V => DNF[W]): DNF[W] =
+      vs.foldLeft(dnf) { case (dnf, v) => dnf ∧ f(v) }
+
+    or.foldLeft(DNF.from(false)) {
+      case (dnf, (ts, fs)) =>
+        dnf ∨ r(r(DNF.from(true), ts, f), fs, f(_).invert)
+    }
+  }
+
+  def toFull: Full[V] =
+    Full(DNF {
+      val or1 = or.filter { case (ts, fs) => !ts.isEmpty || !fs.isEmpty }
+      val vs = or1.flatMap { case (ts, fs) => ts | fs }
+      vs.foldLeft(or1) {
+        case (or, v) =>
+          or.flatMap {
+            case (ts, fs) =>
+              if (ts.contains(v) || fs.contains(v))
+                Set((ts, fs))
+              else
+                Set((ts + v, fs), (ts, fs + v))
+          }
+      }
+    })
+
+  override def toString: String = or.toList match {
+    case List() => "0"
+    case or =>
+      or.map {
+          case (ts, fs) =>
+            (ts.map(_.toString).toList ++ fs.map(v => s"¬$v").toList) match {
+              case List() => "1"
+              case List(v) => v
+              case vs => vs.toArray.sorted.mkString("(", " ∧ ", ")")
+            }
+        }
+        .toArray
+        .sorted
+        .mkString(" ∨ ")
   }
 }
