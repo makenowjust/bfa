@@ -17,21 +17,13 @@ case class BFA(
     trans: Map[(Symbol, Char), DNF[RefExpr]],
     last: Set[Symbol]
 ) {
-  import DNF._
   import RefExpr._
-
-  private[bfa] implicit val fromBooleanOnRefExpr =
-    new DNF.FromBooleanImplicit[RefExpr] {}
-  private[bfa] implicit val fromBooleanOnSymbol =
-    new FromBooleanImplicit[Symbol] {}
 
   def update(e: DNF[Symbol],
              c: Char,
              f: RefExpr => DNF[Symbol]): DNF[Symbol] = {
-    import fromBooleanOnRefExpr._
-
     e.replace { v =>
-      trans.getOrElse((v, c), DNF.from(false)).replace(f)
+      trans.getOrElse((v, c), DNF.zero).replace(f)
     }
   }
 }
@@ -40,59 +32,51 @@ case class MBFA(
     main: BFA,
     subs: IndexedSeq[BFA],
 ) {
-  import DNF._
+  implicit object FromSymbolOnSymbol extends DNF.From[Symbol] {
+    type Var = Symbol
 
-  private[bfa] trait FromSymbolImplicit {
-    implicit object FromSymbol extends From[Symbol] {
-      type Var = Symbol
-
-      def from(v: Symbol): DNF[Symbol] = DNF(Set((Set(v), Set.empty)))
-    }
+    def from(v: Symbol): DNF[Symbol] = DNF(Set((Set(v), Set.empty)))
   }
-
-  private[bfa] implicit val fromBooleanAndSymbol =
-    new FromBooleanImplicit[Symbol] with FromSymbolImplicit {}
 
   private case class Run(mainExpr: DNF.Full[Symbol],
                          subExprs: IndexedSeq[DNF.Full[Symbol]]) {
     def update(c: Char): Run = {
-      import fromBooleanAndSymbol._
-
-      def resolveRefExpr(r: RefExpr): DNF[Symbol] = r match {
+      lazy val resolveRefExpr: RefExpr => DNF[Symbol] = {
         case RefExpr.Ref(n) => {
           val sub = subs(n)
-          val subExpr = sub.update(subExprs(n).dnf, c, resolveRefExpr(_))
+          val subExpr = updateSub(n)
 
           subExpr.replace { v =>
-            if (sub.last.contains(v)) DNF.from(true) else DNF.from(v)
+            if (sub.last.contains(v)) DNF.one else DNF.from(v)
           }
         }
         case RefExpr.Var(v) => DNF.from(v)
       }
 
+      lazy val updateSub: Int => DNF[Symbol] = util.memoize { n =>
+        subs(n).update(subExprs(n).dnf, c, resolveRefExpr)
+      }
+
       Run(
-        main.update(mainExpr.dnf, c, resolveRefExpr(_)).toFull,
-        (subs zip subExprs).map {
-          case (sub, subExpr) =>
-            sub.update(subExpr.dnf, c, resolveRefExpr(_)).toFull
-        }
+        main.update(mainExpr.dnf, c, resolveRefExpr).toFull,
+        (0 until subs.length).map(updateSub(_).toFull),
       )
     }
   }
 
   private def initRun: Run = {
-    import fromBooleanAndSymbol._
-
-    def resolveRefExpr(r: RefExpr): DNF[Symbol] = r match {
-      case RefExpr.Ref(n) => subs(n).init.replace(resolveRefExpr(_))
+    lazy val resolveRefExpr: RefExpr => DNF[Symbol] = {
+      case RefExpr.Ref(n) => initSub(n)
       case RefExpr.Var(v) => DNF.from(v)
     }
 
+    lazy val initSub: Int => DNF[Symbol] = util.memoize { n =>
+      subs(n).init.replace(resolveRefExpr)
+    }
+
     Run(
-      main.init.replace(resolveRefExpr(_)).toFull,
-      subs.map { sub =>
-        sub.init.replace(resolveRefExpr(_)).toFull
-      }
+      main.init.replace(resolveRefExpr).toFull,
+      (0 until subs.length).map(initSub(_).toFull),
     )
   }
 
@@ -154,32 +138,19 @@ case class MBFA(
 
 object MBFA {
   import AST._
-  import DNF._
   import RefExpr._
 
-  private[bfa] trait FromRefExprImplicit {
-    implicit object FromSymbol extends From[Symbol] {
-      type Var = RefExpr
+  implicit object FromSymbolOnRefExpr extends DNF.From[Symbol] {
+    type Var = RefExpr
 
-      def from(v: Symbol): DNF[RefExpr] = DNF(Set((Set(Var(v)), Set.empty)))
-    }
-
-    implicit object FromInt extends From[Int] {
-      type Var = RefExpr
-
-      def from(v: Int): DNF[RefExpr] = DNF(Set((Set(Ref(v)), Set.empty)))
-    }
-
-    implicit object FromRefExpr extends From[RefExpr] {
-      type Var = RefExpr
-
-      def from(v: RefExpr): DNF[RefExpr] = DNF(Set((Set(v), Set.empty)))
-    }
+    def from(v: Symbol): DNF[RefExpr] = DNF(Set((Set(Var(v)), Set.empty)))
   }
 
-  implicit val fromRefExpr = new FromRefExprImplicit
-  with FromBooleanImplicit[RefExpr] {}
-  import fromRefExpr._
+  implicit object FromInt extends DNF.From[Int] {
+    type Var = RefExpr
+
+    def from(v: Int): DNF[RefExpr] = DNF(Set((Set(Ref(v)), Set.empty)))
+  }
 
   def from(node: AST): MBFA = {
     val Convert(_, subs, init, trans, last, aheadTrans, aheadLast) =
@@ -216,13 +187,13 @@ object MBFA {
         val Convert(id2, subs2, i2, t2, l2, at2, al2) =
           convert(right, id1, subs1)
 
-        def f(r: RefExpr): DNF[RefExpr] = r match {
-          case ref: Ref => DNF.from(ref)
-          case Var(v)   => if (l1.contains(v)) i2 else DNF.from(v)
+        val f: RefExpr => DNF[RefExpr] = {
+          case Ref(n) => DNF.from(n)
+          case Var(v) => if (l1.contains(v)) i2 else DNF.from(v)
         }
 
-        val i3 = i1.replace(f(_))
-        val t3 = t1.mapValues(_.replace(f(_))) ++ t2
+        val i3 = i1.replace(f)
+        val t3 = t1.mapValues(_.replace(f)) ++ t2
 
         Convert(id2, subs2, i3, t3, l2, at1 ++ at2, al1 | al2)
       }
@@ -283,13 +254,13 @@ object MBFA {
         val Convert(id1, subs1, i1, t1, l1, at1, al1) = convert(node, id, subs)
         val (id2, v) = nextId(id1)
 
-        def f(r: RefExpr): DNF[RefExpr] = r match {
-          case ref: Ref => DNF.from(ref)
-          case Var(v)   => if (l1.contains(v)) DNF.from(v) ∨ i1 else DNF.from(v)
+        val f: RefExpr => DNF[RefExpr] = {
+          case Ref(n) => DNF.from(n)
+          case Var(v) => if (l1.contains(v)) DNF.from(v) ∨ i1 else DNF.from(v)
         }
 
-        val i2 = i1.replace(f(_)) ∨ DNF.from(v)
-        val t2 = t1.mapValues(_.replace(f(_)))
+        val i2 = i1.replace(f) ∨ DNF.from(v)
+        val t2 = t1.mapValues(_.replace(f))
 
         Convert(id2, subs, i2, t2, l1 + v, at1, al1)
       }
@@ -297,13 +268,13 @@ object MBFA {
       case Plus(node) => {
         val Convert(id1, subs1, i1, t1, l1, at1, al1) = convert(node, id, subs)
 
-        def f(r: RefExpr): DNF[RefExpr] = r match {
-          case ref: Ref => DNF.from(ref)
-          case Var(v)   => if (l1.contains(v)) DNF.from(v) ∨ i1 else DNF.from(v)
+        val f: RefExpr => DNF[RefExpr] = {
+          case Ref(n) => DNF.from(n)
+          case Var(v) => if (l1.contains(v)) DNF.from(v) ∨ i1 else DNF.from(v)
         }
 
-        val i2 = i1.replace(f(_))
-        val t2 = t1.mapValues(_.replace(f(_)))
+        val i2 = i1.replace(f)
+        val t2 = t1.mapValues(_.replace(f))
 
         Convert(id1, subs, i2, t2, l1, at1, al1)
       }

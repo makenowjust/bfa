@@ -14,16 +14,8 @@ object DNF {
 
   def from[A](a: A)(implicit F: From[A]): DNF[F.Var] = F.from(a)
 
-  trait FromBooleanImplicit[V] {
-    implicit object FromBoolean extends From[Boolean] {
-      type Var = V
-
-      def from(a: Boolean): DNF[V] = a match {
-        case true  => DNF(Set((Set.empty, Set.empty)))
-        case false => DNF(Set.empty)
-      }
-    }
-  }
+  def one[V]: DNF[V] = DNF(Set((Set.empty, Set.empty)))
+  def zero[V]: DNF[V] = DNF(Set.empty)
 }
 
 /**
@@ -48,10 +40,8 @@ final case class DNF[V] private (private[bfa] val or: DNF.Or[V]) {
       (ts subsetOf vs) && (fs & vs).isEmpty
   }
 
-  def invert(implicit fromBoolean: FromBooleanImplicit[V]): DNF[V] = {
-    import fromBoolean._
-
-    or.foldLeft(DNF.from(true)) {
+  def invert: DNF[V] = {
+    or.foldLeft(DNF.one[V]) {
       case (dnf, (ts, fs)) =>
         val or21 = ts.map { v =>
           ((Set.empty, Set(v))): And[V]
@@ -63,16 +53,13 @@ final case class DNF[V] private (private[bfa] val or: DNF.Or[V]) {
     }
   }
 
-  def replace[W](f: V => DNF[W])(
-      implicit fromBoolean: FromBooleanImplicit[W]): DNF[W] = {
-    import fromBoolean._
-
+  def replace[W](f: V => DNF[W]): DNF[W] = {
     def r(dnf: DNF[W], vs: Set[V], f: V => DNF[W]): DNF[W] =
       vs.foldLeft(dnf) { case (dnf, v) => dnf ∧ f(v) }
 
-    or.foldLeft(DNF.from(false)) {
+    or.foldLeft(DNF.zero[W]) {
       case (dnf, (ts, fs)) =>
-        dnf ∨ r(r(DNF.from(true), ts, f), fs, f(_).invert)
+        dnf ∨ r(r(DNF.one, ts, f), fs, f(_).invert)
     }
   }
 
