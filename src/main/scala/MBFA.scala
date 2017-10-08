@@ -91,7 +91,7 @@ case class MBFA(
       qMap
         .get(run)
         .map { q =>
-          (id, qMap, q, Map[(Symbol, Char), Symbol](), Set[Symbol]())
+          (id, qMap, q, Map.empty[(Symbol, Char), Symbol], Set.empty[Symbol])
         }
         .getOrElse {
           val q = Symbol(s"v$id")
@@ -117,7 +117,7 @@ case class MBFA(
           }
 
           val (id2, qMap2, t, l1) =
-            chars.foldLeft((id1, qMap1, Map[(Symbol, Char), Symbol](), l)) {
+            chars.foldLeft((id1, qMap1, Map.empty[(Symbol, Char), Symbol], l)) {
               case ((id2, qMap2, t, l1), c) =>
                 val (id3, qMap3, p, pt, pl) = step(run.update(c), id2, qMap2)
                 (id3, qMap3, t + ((q, c) -> p) ++ pt, l1 | pl)
