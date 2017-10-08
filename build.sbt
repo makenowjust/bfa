@@ -20,18 +20,22 @@ lazy val root = (project in file(".")).settings(
     val node = Parser.parse(p).get
     val mbfa = MBFA.from(node)
     val dfa = DFA.from(mbfa)
+    val node2 = dfa.toRegExp
     println(s"AST  => ${node}")
     println(s"MBFA => ${mbfa}")
     println(s"DFA  => ${dfa}")
+    println(s"AST2 => ${node2}")
   }
 
   def m(p: String, s: String): Unit = {
     val node = Parser.parse(p).get
     val mbfa = MBFA.from(node)
     val dfa = DFA.from(mbfa)
+    val node2 = dfa.toRegExp
     println(s"AST  => ${node.matches(s)}")
     println(s"MBFA => ${mbfa.matches(s)}")
     println(s"DFA  => ${dfa.matches(s)}")
+    println(s"AST2 => ${node2.matches(s)}")
   }
   """
 )

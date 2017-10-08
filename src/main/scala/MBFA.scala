@@ -297,6 +297,9 @@ object MBFA {
                 Map.empty,
                 Set.empty)
       }
+
+      case Fail =>
+        Convert(id, subs, DNF.zero, Map.empty, Set.empty, Map.empty, Set.empty)
     }
   }
 }

@@ -17,6 +17,7 @@ object AST {
 
   final case class Literal(char: Char) extends AST
   case object Empty extends AST
+  case object Fail extends AST
 }
 
 sealed abstract class AST {
@@ -65,6 +66,7 @@ sealed abstract class AST {
       case Literal(c) =>
         if (re.current == Some(c)) tailcall(cont(re.next)) else done(false)
       case Empty => tailcall(cont(re))
+      case Fail  => done(false)
     }
   }
 
@@ -83,5 +85,39 @@ sealed abstract class AST {
 
     case Literal(c) => Literal(c)
     case Empty      => Empty
+    case Fail       => Fail
+  }
+
+  def |(that: AST): AST = (this, that) match {
+    case (Fail, Fail)     => Fail
+    case (l, Fail)        => l
+    case (Fail, r)        => r
+    case (l, r) if l == r => l
+    case (l, r)           => Alt(l, r)
+  }
+
+  def * : AST = this match {
+    case Fail  => Empty
+    case Empty => Empty
+    case _     => Star(this)
+  }
+
+  def ? : AST = this match {
+    case Fail  => Empty
+    case Empty => Empty
+    case _     => Quest(this)
+  }
+
+  def ~(that: AST): AST = (this, that) match {
+    case (_, Fail)                    => Fail
+    case (Fail, _)                    => Fail
+    case (l, Empty)                   => l
+    case (Empty, r)                   => r
+    case (Star(l), Star(r)) if l == r => Star(l)
+    case (Plus(l), r) if l == r       => Plus(l)
+    case (l, Plus(r)) if l == r       => Plus(l)
+    case (Star(l), r) if l == r       => Plus(l)
+    case (l, Star(r)) if l == r       => Plus(l)
+    case (l, r)                       => Concat(l, r)
   }
 }
