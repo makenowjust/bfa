@@ -6,13 +6,7 @@ object DNF {
 
   final case class Full[V] private[bfa] (dnf: DNF[V])
 
-  trait From[-A] {
-    type Var
-
-    def from(a: A): DNF[Var]
-  }
-
-  def from[A](a: A)(implicit F: From[A]): DNF[F.Var] = F.from(a)
+  def symbol[V](v: V): DNF[V] = DNF(Set((Set(v), Set.empty)))
 
   def one[V]: DNF[V] = DNF(Set((Set.empty, Set.empty)))
   def zero[V]: DNF[V] = DNF(Set.empty)

@@ -32,12 +32,6 @@ case class MBFA(
     main: BFA,
     subs: IndexedSeq[BFA],
 ) {
-  implicit object FromSymbolOnSymbol extends DNF.From[Symbol] {
-    type Var = Symbol
-
-    def from(v: Symbol): DNF[Symbol] = DNF(Set((Set(v), Set.empty)))
-  }
-
   private case class Run(mainExpr: DNF.Full[Symbol],
                          subExprs: IndexedSeq[DNF.Full[Symbol]]) {
     def update(c: Char): Run = {
@@ -47,10 +41,10 @@ case class MBFA(
           val subExpr = updateSub(n)
 
           subExpr.replace { v =>
-            if (sub.last.contains(v)) DNF.one else DNF.from(v)
+            if (sub.last.contains(v)) DNF.one else DNF.symbol(v)
           }
         }
-        case RefExpr.Var(v) => DNF.from(v)
+        case RefExpr.Var(v) => DNF.symbol(v)
       }
 
       lazy val updateSub: Int => DNF[Symbol] = util.memoize { n =>
@@ -67,7 +61,7 @@ case class MBFA(
   private def initRun: Run = {
     lazy val resolveRefExpr: RefExpr => DNF[Symbol] = {
       case RefExpr.Ref(n) => initSub(n)
-      case RefExpr.Var(v) => DNF.from(v)
+      case RefExpr.Var(v) => DNF.symbol(v)
     }
 
     lazy val initSub: Int => DNF[Symbol] = util.memoize { n =>
@@ -140,18 +134,6 @@ object MBFA {
   import AST._
   import RefExpr._
 
-  implicit object FromSymbolOnRefExpr extends DNF.From[Symbol] {
-    type Var = RefExpr
-
-    def from(v: Symbol): DNF[RefExpr] = DNF(Set((Set(Var(v)), Set.empty)))
-  }
-
-  implicit object FromInt extends DNF.From[Int] {
-    type Var = RefExpr
-
-    def from(v: Int): DNF[RefExpr] = DNF(Set((Set(Ref(v)), Set.empty)))
-  }
-
   def from(node: AST): MBFA = {
     val Convert(_, subs, init, trans, last, aheadTrans, aheadLast) =
       convert(node, 1, IndexedSeq.empty)
@@ -188,8 +170,8 @@ object MBFA {
           convert(right, id1, subs1)
 
         val f: RefExpr => DNF[RefExpr] = {
-          case Ref(n) => DNF.from(n)
-          case Var(v) => if (l1.contains(v)) i2 else DNF.from(v)
+          case r @ Ref(_) => DNF.symbol(r)
+          case r @ Var(v) => if (l1.contains(v)) i2 else DNF.symbol(r)
         }
 
         val i3 = i1.replace(f)
@@ -204,7 +186,7 @@ object MBFA {
 
         Convert(id1,
                 subs1,
-                i1 ∧ DNF.from(v),
+                i1 ∧ DNF.symbol(Var(v)),
                 Map.empty,
                 Set(v),
                 at1 ++ t1,
@@ -217,7 +199,7 @@ object MBFA {
 
         Convert(id1,
                 subs1,
-                i1.invert ∧ DNF.from(v),
+                i1.invert ∧ DNF.symbol(Var(v)),
                 Map.empty,
                 Set(v),
                 at1 ++ t1,
@@ -228,13 +210,14 @@ object MBFA {
         val Convert(id1, subs1, i1, t1, l1, at1, al1) = convert(node, id, subs)
         val (id2, v) = nextId(id1)
 
-        Convert(id2,
-                subs1 :+ BFA(i1, t1, l1),
-                DNF.from(v) ∧ DNF.from(subs1.length),
-                Map.empty,
-                Set(v),
-                at1,
-                al1)
+        Convert(
+          id2,
+          subs1 :+ BFA(i1, t1, l1),
+          DNF.symbol[RefExpr](Var(v)) ∧ DNF.symbol[RefExpr](Ref(subs1.length)),
+          Map.empty,
+          Set(v),
+          at1,
+          al1)
       }
 
       case NegativeLookBehind(node) => {
@@ -243,7 +226,9 @@ object MBFA {
 
         Convert(id2,
                 subs1 :+ BFA(i1, t1, l1),
-                DNF.from(v) ∧ DNF.from(subs1.length).invert,
+                DNF.symbol[RefExpr](Var(v)) ∧ DNF
+                  .symbol[RefExpr](Ref(subs1.length))
+                  .invert,
                 Map.empty,
                 Set(v),
                 at1,
@@ -252,25 +237,27 @@ object MBFA {
 
       case Star(node) => {
         val Convert(id1, subs1, i1, t1, l1, at1, al1) = convert(node, id, subs)
-        val (id2, v) = nextId(id1)
+        val (id2, s) = nextId(id1)
 
         val f: RefExpr => DNF[RefExpr] = {
-          case Ref(n) => DNF.from(n)
-          case Var(v) => if (l1.contains(v)) DNF.from(v) ∨ i1 else DNF.from(v)
+          case r @ Ref(_) => DNF.symbol(r)
+          case r @ Var(v) =>
+            if (l1.contains(v)) i1 ∨ DNF.symbol(r) else DNF.symbol(r)
         }
 
-        val i2 = i1.replace(f) ∨ DNF.from(v)
+        val i2 = i1.replace(f) ∨ DNF.symbol[RefExpr](Var(s))
         val t2 = t1.mapValues(_.replace(f))
 
-        Convert(id2, subs, i2, t2, l1 + v, at1, al1)
+        Convert(id2, subs, i2, t2, l1 + s, at1, al1)
       }
 
       case Plus(node) => {
         val Convert(id1, subs1, i1, t1, l1, at1, al1) = convert(node, id, subs)
 
         val f: RefExpr => DNF[RefExpr] = {
-          case Ref(n) => DNF.from(n)
-          case Var(v) => if (l1.contains(v)) DNF.from(v) ∨ i1 else DNF.from(v)
+          case r @ Ref(_) => DNF.symbol(r)
+          case r @ Var(v) =>
+            if (l1.contains(v)) i1 ∨ DNF.symbol(r) else DNF.symbol(r)
         }
 
         val i2 = i1.replace(f)
@@ -281,9 +268,9 @@ object MBFA {
 
       case Quest(node) => {
         val Convert(id1, subs1, i1, t1, l1, at1, al1) = convert(node, id, subs)
-        val (id2, v) = nextId(id1)
+        val (id2, s) = nextId(id1)
 
-        Convert(id2, subs, i1 ∨ DNF.from(v), t1, l1 + v, at1, al1)
+        Convert(id2, subs, i1 ∨ DNF.symbol(Var(s)), t1, l1 + s, at1, al1)
       }
 
       case Literal(c) => {
@@ -292,8 +279,8 @@ object MBFA {
 
         Convert(id2,
                 subs,
-                DNF.from(i),
-                Map((i, c) -> DNF.from(l)),
+                DNF.symbol(Var(i)),
+                Map((i, c) -> DNF.symbol(Var(l))),
                 Set(l),
                 Map.empty,
                 Set.empty)
@@ -302,7 +289,13 @@ object MBFA {
       case Empty => {
         val (id1, v) = nextId(id)
 
-        Convert(id1, subs, DNF.from(v), Map.empty, Set(v), Map.empty, Set.empty)
+        Convert(id1,
+                subs,
+                DNF.symbol(Var(v)),
+                Map.empty,
+                Set(v),
+                Map.empty,
+                Set.empty)
       }
     }
   }
