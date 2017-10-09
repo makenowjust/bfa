@@ -159,7 +159,6 @@ object MBFA {
         val Convert(id1, subs1, i1, t1, l1, at1, al1) = convert(left, id, subs)
         val Convert(id2, subs2, i2, t2, l2, at2, al2) =
           convert(right, id1, subs1)
-        println("alt", node, i1, l1, i2, l2)
 
         Convert(id2, subs2, i1 ∨ i2, t1 ++ t2, l1 | l2, at1 ++ at2, al1 | al2)
       }
@@ -168,8 +167,6 @@ object MBFA {
         val Convert(id1, subs1, i1, t1, l1, at1, al1) = convert(left, id, subs)
         val Convert(id2, subs2, i2, t2, l2, at2, al2) =
           convert(right, id1, subs1)
-
-        println("concat", node, i1, l1, i2, l2)
 
         val f: RefExpr => DNF[RefExpr] = {
           case r @ Ref(_) => DNF.symbol(r)
