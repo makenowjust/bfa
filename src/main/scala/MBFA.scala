@@ -32,8 +32,8 @@ case class MBFA(
     main: BFA,
     subs: IndexedSeq[BFA],
 ) {
-  private case class Run(mainExpr: DNF.Full[Symbol],
-                         subExprs: IndexedSeq[DNF.Full[Symbol]]) {
+  private case class Run(mainExpr: DNF[Symbol],
+                         subExprs: IndexedSeq[DNF[Symbol]]) {
     def update(c: Char): Run = {
       lazy val resolveRefExpr: RefExpr => DNF[Symbol] = {
         case RefExpr.Ref(n) => {
@@ -48,12 +48,12 @@ case class MBFA(
       }
 
       lazy val updateSub: Int => DNF[Symbol] = util.memoize { n =>
-        subs(n).update(subExprs(n).dnf, c, resolveRefExpr)
+        subs(n).update(subExprs(n), c, resolveRefExpr)
       }
 
       Run(
-        main.update(mainExpr.dnf, c, resolveRefExpr).toFull,
-        (0 until subs.length).map(updateSub(_).toFull),
+        main.update(mainExpr, c, resolveRefExpr),
+        (0 until subs.length).map(updateSub(_)),
       )
     }
   }
@@ -69,15 +69,14 @@ case class MBFA(
     }
 
     Run(
-      main.init.replace(resolveRefExpr).toFull,
-      (0 until subs.length).map(initSub(_).toFull),
+      main.init.replace(resolveRefExpr),
+      (0 until subs.length).map(initSub(_)),
     )
   }
 
   def matches(s: String): Boolean =
     s.foldLeft(initRun) { case (r, c) => r.update(c) }
       .mainExpr
-      .dnf
       .evaluate(main.last)
 
   def toDFA: DFA = {
@@ -98,8 +97,8 @@ case class MBFA(
           val id1 = id + 1
           val qMap1 = qMap + (run -> q)
 
-          val symbols = run.subExprs.foldLeft(run.mainExpr.dnf.symbols) {
-            case (vs, subExpr) => vs | subExpr.dnf.symbols
+          val symbols = run.subExprs.foldLeft(run.mainExpr.symbols) {
+            case (vs, subExpr) => vs | subExpr.symbols
           }
           val mainChars = main.trans.keySet
             .filter { case (q, _) => symbols.contains(q) }
@@ -111,7 +110,7 @@ case class MBFA(
                 .map(_._2)
           }
 
-          val l: Set[Symbol] = run.mainExpr.dnf.evaluate(main.last) match {
+          val l: Set[Symbol] = run.mainExpr.evaluate(main.last) match {
             case true  => Set(q)
             case false => Set.empty
           }
@@ -160,6 +159,7 @@ object MBFA {
         val Convert(id1, subs1, i1, t1, l1, at1, al1) = convert(left, id, subs)
         val Convert(id2, subs2, i2, t2, l2, at2, al2) =
           convert(right, id1, subs1)
+        println("alt", node, i1, l1, i2, l2)
 
         Convert(id2, subs2, i1 ∨ i2, t1 ++ t2, l1 | l2, at1 ++ at2, al1 | al2)
       }
@@ -169,9 +169,11 @@ object MBFA {
         val Convert(id2, subs2, i2, t2, l2, at2, al2) =
           convert(right, id1, subs1)
 
+        println("concat", node, i1, l1, i2, l2)
+
         val f: RefExpr => DNF[RefExpr] = {
           case r @ Ref(_) => DNF.symbol(r)
-          case r @ Var(v) => if (l1.contains(v)) i2 else DNF.symbol(r)
+          case r @ Var(v) => if (l1.contains(v)) i2 ∨ DNF.symbol(r) else DNF.symbol(r)
         }
 
         val i3 = i1.replace(f)
@@ -184,7 +186,7 @@ object MBFA {
         val Convert(id1, subs1, i1, t1, l1, at1, al1) = convert(node, id, subs)
         val (id2, v) = nextId(id1)
 
-        Convert(id1,
+        Convert(id2,
                 subs1,
                 i1 ∧ DNF.symbol(Var(v)),
                 Map.empty,
@@ -197,7 +199,7 @@ object MBFA {
         val Convert(id1, subs1, i1, t1, l1, at1, al1) = convert(node, id, subs)
         val (id2, v) = nextId(id1)
 
-        Convert(id1,
+        Convert(id2,
                 subs1,
                 i1.invert ∧ DNF.symbol(Var(v)),
                 Map.empty,
@@ -248,7 +250,7 @@ object MBFA {
         val i2 = i1.replace(f) ∨ DNF.symbol[RefExpr](Var(s))
         val t2 = t1.mapValues(_.replace(f))
 
-        Convert(id2, subs, i2, t2, l1 + s, at1, al1)
+        Convert(id2, subs1, i2, t2, l1 + s, at1, al1)
       }
 
       case Plus(node) => {
@@ -263,14 +265,14 @@ object MBFA {
         val i2 = i1.replace(f)
         val t2 = t1.mapValues(_.replace(f))
 
-        Convert(id1, subs, i2, t2, l1, at1, al1)
+        Convert(id1, subs1, i2, t2, l1, at1, al1)
       }
 
       case Quest(node) => {
         val Convert(id1, subs1, i1, t1, l1, at1, al1) = convert(node, id, subs)
         val (id2, s) = nextId(id1)
 
-        Convert(id2, subs, i1 ∨ DNF.symbol(Var(s)), t1, l1 + s, at1, al1)
+        Convert(id2, subs1, i1 ∨ DNF.symbol(Var(s)), t1, l1 + s, at1, al1)
       }
 
       case Literal(c) => {

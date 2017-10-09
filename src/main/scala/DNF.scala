@@ -4,8 +4,6 @@ object DNF {
   private type Or[V] = Set[And[V]]
   private type And[V] = (Set[V], Set[V])
 
-  final case class Full[V] private[bfa] (dnf: DNF[V])
-
   def symbol[V](v: V): DNF[V] = DNF(Set((Set(v), Set.empty)))
 
   def one[V]: DNF[V] = DNF(Set((Set.empty, Set.empty)))
@@ -18,14 +16,27 @@ object DNF {
 final case class DNF[V] private (private[bfa] val or: DNF.Or[V]) {
   import DNF._
 
-  def ∧(other: DNF[V]): DNF[V] = DNF {
-    for {
-      (ts1, fs1) <- or
-      (ts2, fs2) <- other.or
-    } yield (ts1 | ts2, fs1 | fs2)
-  }
+  def isOne: Boolean = this == DNF.one
+  def isZero: Boolean = this == DNF.zero
 
-  def ∨(other: DNF[V]): DNF[V] = DNF(or | other.or)
+  def ∧(that: DNF[V]): DNF[V] =
+    if (this == that) this
+    else if (this.isOne) that
+    else if (that.isOne) this
+    else if (this.isZero || that.isZero) DNF.zero
+    else DNF {
+      for {
+        (ts1, fs1) <- this.or
+        (ts2, fs2) <- that.or
+      } yield (ts1 | ts2, fs1 | fs2)
+    }
+
+  def ∨(that: DNF[V]): DNF[V] =
+    if (this == that) this
+    else if (this.isZero) that
+    else if (that.isZero) this
+    else if (this.isOne || that.isOne) DNF.one
+    else DNF(or | that.or)
 
   def symbols: Set[V] = or.flatMap { case (ts, fs) => ts | fs }
 
@@ -56,22 +67,6 @@ final case class DNF[V] private (private[bfa] val or: DNF.Or[V]) {
         dnf ∨ r(r(DNF.one, ts, f), fs, f(_).invert)
     }
   }
-
-  def toFull: Full[V] =
-    Full(DNF {
-      val or1 = or.filter { case (ts, fs)  => !ts.isEmpty || !fs.isEmpty }
-      val vs = or1.flatMap { case (ts, fs) => ts | fs }
-      vs.foldLeft(or1) {
-        case (or, v) =>
-          or.flatMap {
-            case (ts, fs) =>
-              if (ts.contains(v) || fs.contains(v))
-                Set((ts, fs))
-              else
-                Set((ts + v, fs), (ts, fs + v))
-          }
-      }
-    })
 
   override def toString: String = or.toList match {
     case List() => "0"

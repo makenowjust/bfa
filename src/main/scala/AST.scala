@@ -3,8 +3,25 @@ package bfa
 import scala.util.control.TailCalls._
 
 object AST {
-  final case class Alt(left: AST, right: AST) extends AST
-  final case class Concat(left: AST, right: AST) extends AST
+  final case class Alt(left: AST, right: AST) extends AST {
+    def altFlatten: List[AST] = this match {
+      case Alt(l: Alt, r: Alt) => l.altFlatten ++ r.altFlatten
+      case Alt(l: Alt, r)      => l.altFlatten ++ List(r)
+      case Alt(l, r: Alt)      => List(l) ++ r.altFlatten
+      case Alt(l, r)           => List(l, r)
+    }
+
+    def isCharClass: Boolean = altFlatten.forall{ case _: Literal => true; case _ => false }
+  }
+
+  final case class Concat(left: AST, right: AST) extends AST {
+    def concatFlatten: List[AST] = this match {
+      case Concat(l: Concat, r: Concat) => l.concatFlatten ++ r.concatFlatten
+      case Concat(l: Concat, r)      => l.concatFlatten ++ List(r)
+      case Concat(l, r: Concat)      => List(l) ++ r.concatFlatten
+      case Concat(l, r)           => List(l, r)
+    }
+  }
 
   final case class PositiveLookAhead(node: AST) extends AST
   final case class NegativeLookAhead(node: AST) extends AST
@@ -92,6 +109,8 @@ sealed abstract class AST {
     case (Fail, Fail)     => Fail
     case (l, Fail)        => l
     case (Fail, r)        => r
+    case (l, Empty)       => l.?
+    case (Empty, r)       => r.?
     case (l, r) if l == r => l
     case (l, r)           => Alt(l, r)
   }
@@ -99,12 +118,16 @@ sealed abstract class AST {
   def * : AST = this match {
     case Fail  => Empty
     case Empty => Empty
+    case Star(n) => Star(n)
+    case Quest(n) => Star(n)
     case _     => Star(this)
   }
 
   def ? : AST = this match {
     case Fail  => Empty
     case Empty => Empty
+    case Star(n) => Star(n)
+    case Quest(n) => Quest(n)
     case _     => Quest(this)
   }
 
@@ -119,5 +142,39 @@ sealed abstract class AST {
     case (Star(l), r) if l == r       => Plus(l)
     case (l, Star(r)) if l == r       => Plus(l)
     case (l, r)                       => Concat(l, r)
+  }
+
+  override def toString: String = this match {
+    case n: Alt if n.isCharClass => s"[${n.altFlatten.map { case Literal(c) => c; case _ => "" }.mkString}]"
+    case n: Alt => n.altFlatten.mkString("(", "|", ")")
+    case n: Concat => n.concatFlatten.mkString
+    case PositiveLookAhead(n) => s"(?=$n)"
+    case NegativeLookAhead(n) => s"(?!$n)"
+    case PositiveLookBehind(n) => s"(?<=$n)"
+    case NegativeLookBehind(n) => s"(?<!$n)"
+    case Star(n) if n.needParen => s"($n)*"
+    case Star(n) => s"$n*"
+    case Plus(n) if n.needParen => s"($n)+"
+    case Plus(n) => s"$n+"
+    case Quest(n) if n.needParen => s"($n)?"
+    case Quest(n) => s"$n?"
+    case Literal(c) => c.toString
+    case Empty => "()"
+    case Fail => "[]"
+  }
+
+  def needParen: Boolean = this match {
+    case n: Alt => !n.isCharClass
+    case n: PositiveLookAhead => true
+    case n: NegativeLookAhead => true
+    case n: PositiveLookBehind => true
+    case n: NegativeLookBehind => true
+    case n: Concat => true
+    case n: Star => true
+    case n: Plus => true
+    case n: Quest => true
+    case n: Literal => false
+    case Empty => false
+    case Fail => false
   }
 }

@@ -1,3 +1,5 @@
+cancelable in Global := true // to abort current task by Ctrl-C
+
 lazy val root = (project in file(".")).settings(
   inThisBuild(
     List(
@@ -18,23 +20,23 @@ lazy val root = (project in file(".")).settings(
 
   def a(p: String): Unit = {
     val node = Parser.parse(p).get
-    val mbfa = MBFA.from(node)
-    val dfa = DFA.from(mbfa)
-    val node2 = dfa.toRegExp
     println(s"AST  => ${node}")
+    val mbfa = MBFA.from(node)
     println(s"MBFA => ${mbfa}")
+    val dfa = DFA.from(mbfa)
     println(s"DFA  => ${dfa}")
+    val node2 = dfa.toRegExp
     println(s"AST2 => ${node2}")
   }
 
   def m(p: String, s: String): Unit = {
     val node = Parser.parse(p).get
-    val mbfa = MBFA.from(node)
-    val dfa = DFA.from(mbfa)
-    val node2 = dfa.toRegExp
     println(s"AST  => ${node.matches(s)}")
+    val mbfa = MBFA.from(node)
     println(s"MBFA => ${mbfa.matches(s)}")
+    val dfa = DFA.from(mbfa)
     println(s"DFA  => ${dfa.matches(s)}")
+    val node2 = dfa.toRegExp
     println(s"AST2 => ${node2.matches(s)}")
   }
   """

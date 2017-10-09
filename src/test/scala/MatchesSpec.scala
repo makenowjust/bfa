@@ -24,6 +24,8 @@ class MatchesSpec extends WordSpec with MustMatchers {
       ("(a|b)(?<!a)", (List("b"), List("", "a"))),
       ("(a|b)(?<=a(?=b))(a|b)", (List("ab"), List("aa"))),
       ("(a|b)(?<=a(?!b))(a|b)", (List("aa"), List("ab"))),
+      ("(a(a|b)(?<=(a|b)*b(?=a(a|b)*))|aa)b", (List("aab"), List("aaa"))),
+      ("(a(?=a)|a)b", (List("ab"), List("b"))),
     )
 
   "AST#matches" must {
