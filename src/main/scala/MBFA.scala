@@ -173,7 +173,8 @@ object MBFA {
 
         val f: RefExpr => DNF[RefExpr] = {
           case r @ Ref(_) => DNF.symbol(r)
-          case r @ Var(v) => if (l1.contains(v)) i2 ∨ DNF.symbol(r) else DNF.symbol(r)
+          case r @ Var(v) =>
+            if (l1.contains(v)) i2 ∨ DNF.symbol(r) else DNF.symbol(r)
         }
 
         val i3 = i1.replace(f)

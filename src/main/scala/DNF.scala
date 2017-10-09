@@ -24,12 +24,13 @@ final case class DNF[V] private (private[bfa] val or: DNF.Or[V]) {
     else if (this.isOne) that
     else if (that.isOne) this
     else if (this.isZero || that.isZero) DNF.zero
-    else DNF {
-      for {
-        (ts1, fs1) <- this.or
-        (ts2, fs2) <- that.or
-      } yield (ts1 | ts2, fs1 | fs2)
-    }
+    else
+      DNF {
+        for {
+          (ts1, fs1) <- this.or
+          (ts2, fs2) <- that.or
+        } yield (ts1 | ts2, fs1 | fs2)
+      }
 
   def ∨(that: DNF[V]): DNF[V] =
     if (this == that) this

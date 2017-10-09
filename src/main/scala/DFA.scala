@@ -34,13 +34,16 @@ final case class DFA(
       mm.map { case ((k, v), cs) => (k, v) -> cs.toList.reduceLeft(_ | _) }.toMap
     }
 
-    lazy val r: ((Int, Int, Int)) => AST = util.memoize { case (i, j, k) =>
-      k match {
-        case -1 if i == j => deltaR.getOrElse((vs(i), vs(j)), Fail).?
-        case -1 if i != j => deltaR.getOrElse((vs(i), vs(j)), Fail)
-        case k =>
-          r(i, j, k - 1) | (r(i, k, k - 1) ~ r(k, k, k - 1).* ~ r(k, j, k - 1))
-      }
+    lazy val r: ((Int, Int, Int)) => AST = util.memoize {
+      case (i, j, k) =>
+        k match {
+          case -1 if i == j => deltaR.getOrElse((vs(i), vs(j)), Fail).?
+          case -1 if i != j => deltaR.getOrElse((vs(i), vs(j)), Fail)
+          case k =>
+            r(i, j, k - 1) | (r(i, k, k - 1) ~ r(k, k, k - 1).* ~ r(k,
+                                                                    j,
+                                                                    k - 1))
+        }
     }
 
     val i = vs.indexOf(init)
