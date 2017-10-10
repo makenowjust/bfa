@@ -20,7 +20,7 @@ final case class DFA(
       .getOrElse(false)
 
   def symbols: Set[Symbol] =
-    Set(init) | trans.map { case ((k, _), v) => Set(k, v) }.toSet.flatten | last
+    Set(init) | trans.iterator.map { case ((k, _), v) => Set(k, v) }.toSet.flatten | last
 
   def toRegExp: AST = {
     import AST._
