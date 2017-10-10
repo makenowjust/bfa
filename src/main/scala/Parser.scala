@@ -34,7 +34,8 @@ class Parser extends RegexParsers {
 
   def atom: Parser[AST] =
     "(" ~> alt <~ ")" |
-      """[^()*+?|]""".r ^^ { (s: String) =>
+    "[" ~> """[^\]]*""".r <~ "]" ^^ { s => s.foldLeft(Fail: AST) { (l, c) => l | Literal(c) } } |
+      """[^()\[\]*+?|]""".r ^^ { (s: String) =>
         Literal(s.charAt(0))
       }
 }
