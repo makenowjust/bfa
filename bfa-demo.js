@@ -2111,7 +2111,7 @@ $c_Lbfa_AST.prototype.toString__T = (function() {
   };
   if (rc19) {
     var this$6 = x13.altFlatten__sci_List();
-    return $f_sc_TraversableOnce__mkString__T__T__T__T(this$6, "", "|", "")
+    return $f_sc_TraversableOnce__mkString__T__T__T__T(this$6, "(", "|", ")")
   };
   if ($is_Lbfa_AST$Concat(this)) {
     var x15 = $as_Lbfa_AST$Concat(this);
