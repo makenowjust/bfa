@@ -20,7 +20,10 @@ final case class DFA(
       .getOrElse(false)
 
   def symbols: Set[Symbol] =
-    Set(init) | trans.iterator.map { case ((k, _), v) => Set(k, v) }.toSet.flatten | last
+    Set(init) | trans.iterator
+      .map { case ((k, _), v) => Set(k, v) }
+      .toSet
+      .flatten | last
 
   def toRegExp: AST = {
     import AST._
@@ -72,31 +75,52 @@ final case class DFA(
       p <- (vs + dead) diff last
     } yield (q, p)
 
-    val `di+1`: Set[(Symbol, Symbol)] => Set[(Symbol, Symbol)] = {
-      di => di | (for {
+    val `di+1`: Set[(Symbol, Symbol)] => Set[(Symbol, Symbol)] = { di =>
+      di | (for {
         q <- symbols
         p <- symbols
-        if cs.exists { c => di.contains(delta2(q, p, c)) }
+        if cs.exists { c =>
+          di.contains(delta2(q, p, c))
+        }
       } yield (q, p))
     }
 
     lazy val di: Stream[Set[(Symbol, Symbol)]] = d0 #:: di.map(`di+1`)
     val d = (di zip di.tail).dropWhile { case ((di, di1)) => di != di1 }.head._1
 
-    def indi(q: Symbol): Set[Symbol] = vs.filter { p => !d.contains((q, p)) }
+    def indi(q: Symbol): Set[Symbol] = vs.filter { p =>
+      !d.contains((q, p))
+    }
 
     var id = 0
     val qMap = new mutable.HashMap[Set[Symbol], Symbol]
-    def indi2q(indi: Set[Symbol]): Symbol = qMap.getOrElseUpdate(indi, { id += 1; Symbol(s"v$id")})
+    def indi2q(indi: Set[Symbol]): Symbol =
+      qMap.getOrElseUpdate(indi, { id += 1; Symbol(s"v$id") })
 
     val i = indi2q(indi(init))
-    val t = vs.foldLeft((Set.empty[Symbol], Map.empty[(Symbol, Char), Symbol])) {
-      case ((done, t), v) =>
-        val q = indi2q(indi(v))
-        if (done.contains(q)) (done, t)
-        else (done + q, t ++ cs.iterator.map { c => trans.get((v, c)).map { p => (q, c) -> indi2q(indi(p)) }.toList }.flatten.toMap)
-    }._2
-    val l = last.map { q => indi2q(indi(q)) }
+    val t = vs
+      .foldLeft((Set.empty[Symbol], Map.empty[(Symbol, Char), Symbol])) {
+        case ((done, t), v) =>
+          val q = indi2q(indi(v))
+          if (done.contains(q)) (done, t)
+          else
+            (done + q,
+             t ++ cs.iterator
+               .map { c =>
+                 trans
+                   .get((v, c))
+                   .map { p =>
+                     (q, c) -> indi2q(indi(p))
+                   }
+                   .toList
+               }
+               .flatten
+               .toMap)
+      }
+      ._2
+    val l = last.map { q =>
+      indi2q(indi(q))
+    }
 
     DFA(i, t, l)
   }
