@@ -148,8 +148,8 @@ sealed abstract class AST {
 
   override def toString: String = this match {
     case n: Alt if n.isCharClass =>
-      s"[${n.altFlatten.map { case Literal(c) => c; case _ => "" }.mkString}]"
-    case n: Alt                  => n.altFlatten.mkString("(", "|", ")")
+      s"[${n.altFlatten.map { case Literal(c) => c; case _ => '\u0000' }.sorted.mkString}]"
+    case n: Alt                  => n.altFlatten.mkString("|")
     case n: Concat               => n.concatFlatten.mkString
     case PositiveLookAhead(n)    => s"(?=$n)"
     case NegativeLookAhead(n)    => s"(?!$n)"
