@@ -80,4 +80,58 @@ class MatchesSpec extends WordSpec with MustMatchers {
         }
     }
   }
+
+  "DFA#toRegExp" must {
+    fixtures.foreach {
+      case (s, (oks, fails)) =>
+        val node = MBFA.from(Parser.parse(s).get).toDFA.toRegExp
+        oks.foreach { ok =>
+          s"""match "$s" against "$ok"""" in {
+            node.matches(ok) must be(true)
+          }
+        }
+
+        fails.foreach { fail =>
+          s"""not match "$s" against "$fail"""" in {
+            node.matches(fail) must not be (true)
+          }
+        }
+    }
+  }
+
+  "DFA#minimize" must {
+    fixtures.foreach {
+      case (s, (oks, fails)) =>
+        val dfa = MBFA.from(Parser.parse(s).get).toDFA.minimize
+        oks.foreach { ok =>
+          s"""match "$s" against "$ok"""" in {
+            dfa.matches(ok) must be(true)
+          }
+        }
+
+        fails.foreach { fail =>
+          s"""not match "$s" against "$fail"""" in {
+            dfa.matches(fail) must not be (true)
+          }
+        }
+    }
+  }
+
+  "DFA#minimize -> DFA#toRegExp" must {
+    fixtures.foreach {
+      case (s, (oks, fails)) =>
+        val node = MBFA.from(Parser.parse(s).get).toDFA.minimize.toRegExp
+        oks.foreach { ok =>
+          s"""match "$s" against "$ok"""" in {
+            node.matches(ok) must be(true)
+          }
+        }
+
+        fails.foreach { fail =>
+          s"""not match "$s" against "$fail"""" in {
+            node.matches(fail) must not be (true)
+          }
+        }
+    }
+  }
 }
