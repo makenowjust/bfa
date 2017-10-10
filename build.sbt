@@ -58,12 +58,12 @@ lazy val root = crossProject(JVMPlatform, JSPlatform)
 lazy val rootJVM = root.jvm
 lazy val rootJS = root.js
 
-lazy val example = project
+lazy val demo = project
   .dependsOn(rootJS)
   .enablePlugins(ScalaJSPlugin)
   .settings(
     commonSettings,
-    name := "bfa-example",
+    name := "bfa-demo",
     scalaJSUseMainModuleInitializer := true,
     libraryDependencies += "org.scala-js" %%% "scalajs-dom" % "0.9.1",
   )
