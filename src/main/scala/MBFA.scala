@@ -154,6 +154,12 @@ object MBFA {
   private def convert(node: AST, id: Int, subs: IndexedSeq[BFA]): Convert = {
     def nextId(id: Int) = (id + 1, Symbol(s"v$id"))
 
+    def substituteOr(l: Set[Symbol], i: DNF[RefExpr])(e: DNF[RefExpr]): DNF[RefExpr] =
+      e.replace {
+        case r @ Var(v) if l.contains(v) => i ∨ DNF.symbol(r)
+        case r => DNF.symbol(r)
+      }
+
     node match {
       case Alt(left, right) => {
         val Convert(id1, subs1, i1, t1, l1, at1, al1) = convert(left, id, subs)
@@ -174,8 +180,8 @@ object MBFA {
             if (l1.contains(v)) i2 ∨ DNF.symbol(r) else DNF.symbol(r)
         }
 
-        val i3 = i1.replace(f)
-        val t3 = t1.mapValues(_.replace(f)) ++ t2
+        val i3 = substituteOr(l1, i2)(i1)
+        val t3 = t1.mapValues(substituteOr(l1, i2)) ++ t2
 
         Convert(id2, subs2, i3, t3, l2, at1 ++ at2, al1 | al2)
       }
@@ -239,14 +245,8 @@ object MBFA {
         val Convert(id1, subs1, i1, t1, l1, at1, al1) = convert(node, id, subs)
         val (id2, s) = nextId(id1)
 
-        val f: RefExpr => DNF[RefExpr] = {
-          case r @ Ref(_) => DNF.symbol(r)
-          case r @ Var(v) =>
-            if (l1.contains(v)) i1 ∨ DNF.symbol(r) else DNF.symbol(r)
-        }
-
-        val i2 = i1.replace(f) ∨ DNF.symbol[RefExpr](Var(s))
-        val t2 = t1.mapValues(_.replace(f))
+        val i2 = substituteOr(l1, i1)(i1) ∨ DNF.symbol[RefExpr](Var(s))
+        val t2 = t1.mapValues(substituteOr(l1, i1))
 
         Convert(id2, subs1, i2, t2, l1 + s, at1, al1)
       }
@@ -254,14 +254,8 @@ object MBFA {
       case Plus(node) => {
         val Convert(id1, subs1, i1, t1, l1, at1, al1) = convert(node, id, subs)
 
-        val f: RefExpr => DNF[RefExpr] = {
-          case r @ Ref(_) => DNF.symbol(r)
-          case r @ Var(v) =>
-            if (l1.contains(v)) i1 ∨ DNF.symbol(r) else DNF.symbol(r)
-        }
-
-        val i2 = i1.replace(f)
-        val t2 = t1.mapValues(_.replace(f))
+        val i2 = substituteOr(l1, i1)(i1)
+        val t2 = t1.mapValues(substituteOr(l1, i1))
 
         Convert(id1, subs1, i2, t2, l1, at1, al1)
       }
