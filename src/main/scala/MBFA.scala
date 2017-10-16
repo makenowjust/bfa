@@ -154,10 +154,11 @@ object MBFA {
   private def convert(node: AST, id: Int, subs: IndexedSeq[BFA]): Convert = {
     def nextId(id: Int) = (id + 1, Symbol(s"v$id"))
 
-    def substituteOr(l: Set[Symbol], i: DNF[RefExpr])(e: DNF[RefExpr]): DNF[RefExpr] =
+    def substituteOr(l: Set[Symbol], i: DNF[RefExpr])(
+        e: DNF[RefExpr]): DNF[RefExpr] =
       e.replace {
         case r @ Var(v) if l.contains(v) => i ∨ DNF.symbol(r)
-        case r => DNF.symbol(r)
+        case r                           => DNF.symbol(r)
       }
 
     node match {
